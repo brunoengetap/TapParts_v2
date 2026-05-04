@@ -110,6 +110,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--body); font
 .section-hdr { font-family: var(--head); font-size: 13px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .8px; margin: 16px 0 8px; }
 .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 199; display: none; }
 .drawer-overlay.open { display: block; }
+.status-selector { background: var(--surf2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+.status-selector label { display: block; font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
+.status-selector select { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-family: var(--body); font-size: 13px; font-weight: 600; background: var(--surf); color: var(--text); }
+.status-confirm-bar { display: flex; gap: 8px; margin-top: 10px; }
+.status-confirm-bar.hidden { display: none; }
+.change-warn { background: #fef9c3; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #92400e; margin-top: 8px; display: none; }
+.change-warn.visible { display: block; }
 .pipe-status-flow { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 10px 0 16px; }
 .psf-step { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; background: var(--surf2); color: var(--text3); border: 1px solid var(--border); }
 .psf-step.done { background: #dcfce7; color: var(--ok); border-color: #bbf7d0; }
@@ -2320,16 +2327,7 @@ function renderPipeline() {
         <div style="font-size:10px;color:var(--text3);margin-top:2px">${pct}%</div>
       </td>
       <td>
-        <div class="pipe-actions">
-          <button class="btn btn-ghost btn-sm" onclick="openDrawer('${i.id_item}')">👁 Detalhe</button>
-          ${nextOpts.includes('cotado') ? `<button class="btn btn-warn btn-sm" onclick="abrirCotacao('${i.id_item}')">💰 Cotar</button>` : ''}
-          ${nextOpts.includes('aprovado_cliente') ? `<button class="btn btn-ok btn-sm" onclick="avancarStatus('${i.id_item}','aprovado_cliente')">✅ Aprovado</button><button class="btn btn-danger btn-sm" onclick="avancarStatus('${i.id_item}','reprovado_cliente')">❌</button>` : ''}
-          ${nextOpts.filter(s => !['cotado','aprovado_cliente','reprovado_cliente'].includes(s)).map(s =>
-            `<button class="btn btn-ghost btn-sm" onclick="avancarStatus('${i.id_item}','${s}')">${STATUS_LABEL[s]||s}</button>`
-          ).join('')}
-          ${calib && !i.data_calibracao && ['instalado_campo','pronto_campo','pecas_recebidas','em_calibracao'].includes(i.status) ?
-            `<button class="btn btn-pend btn-sm" onclick="abrirModalCalibracao('${i.id_item}')">🔬 Calib.</button>` : ''}
-        </div>
+        <button class="btn btn-ghost btn-sm" onclick="openDrawer('${i.id_item}')">👁 Detalhe</button>
       </td>
     </tr>`;
   }).join('');
@@ -2412,13 +2410,18 @@ function openDrawer(itemId) {
   const pipeline = item.instalado_imediatamente ? PIPELINE_CURTO : PIPELINE_NORMAL;
   const curIdx = pipeline.indexOf(item.status);
 
-  // Build status flow
+  // Build status flow visual
   const flowHtml = pipeline.map((s, idx) => {
     const cls = idx < curIdx ? 'done' : idx === curIdx ? 'current' : '';
     return `<span class="psf-step ${cls}">${STATUS_LABEL[s]||s}</span>${idx < pipeline.length-1 ? '<span class="psf-arrow">›</span>' : ''}`;
   }).join('');
 
-  const nextOpts = NEXT_STATUS[item.status] || [];
+  // All statuses for free selector (excluding current)
+  const allStatuses = Object.keys(STATUS_LABEL).filter(s => s !== item.status);
+  const statusOptions = allStatuses.map(s => {
+    const isBack = pipeline.indexOf(s) < curIdx && pipeline.indexOf(s) >= 0;
+    return `<option value="${s}">${isBack ? '↩ ' : ''}${STATUS_LABEL[s]||s}</option>`;
+  }).join('');
 
   document.getElementById('drawer-title').textContent = item.tipo_acessorio;
   document.getElementById('drawer-body').innerHTML = `
@@ -2433,6 +2436,20 @@ function openDrawer(itemId) {
 
     <div class="section-hdr">Fluxo do Pipeline</div>
     <div class="pipe-status-flow">${flowHtml}</div>
+
+    <div class="section-hdr">Alterar Status</div>
+    <div class="status-selector">
+      <label>Mover para outro status (avanço ou retrocesso)</label>
+      <select id="drawer-status-sel" onchange="onDrawerStatusChange('${itemId}')">
+        <option value="">— Selecione o novo status —</option>
+        ${statusOptions}
+      </select>
+      <div class="change-warn" id="drawer-change-warn"></div>
+      <div class="status-confirm-bar hidden" id="drawer-confirm-bar">
+        <button class="btn btn-primary" onclick="confirmarMudancaStatus('${itemId}')">✔ Confirmar</button>
+        <button class="btn btn-ghost" onclick="cancelarMudancaStatus()">Cancelar</button>
+      </div>
+    </div>
 
     <div class="section-hdr">Informações</div>
     <div class="info-row"><span class="ir-label">ID Item</span><span class="ir-val"><code>${item.id_item}</code></span></div>
@@ -2456,23 +2473,65 @@ function openDrawer(itemId) {
     <div class="info-row"><span class="ir-label">Nº Lacre</span><span class="ir-val">${item.num_lacre||'—'}</span></div>` : ''}
   `;
 
-  // Footer actions
+  // Footer: only secondary actions, NO quick status chips
   let footHtml = `<button class="btn btn-ghost" onclick="closeDrawer()">Fechar</button>`;
-  if (nextOpts.includes('cotado')) footHtml += `<button class="btn btn-warn" onclick="abrirCotacao('${itemId}')">💰 Registrar Cotação</button>`;
-  if (nextOpts.includes('aprovado_cliente')) {
-    footHtml += `<button class="btn btn-ok" onclick="avancarStatus('${itemId}','aprovado_cliente')">✅ Aprovado</button>`;
-    footHtml += `<button class="btn btn-danger" onclick="avancarStatus('${itemId}','reprovado_cliente')">❌ Reprovado</button>`;
+  if (item.status === 'aguardando_cotacao' || item.status === 'cotado') {
+    footHtml += `<button class="btn btn-warn" onclick="abrirCotacao('${itemId}')">💰 ${item.valor_cotado ? 'Editar' : 'Registrar'} Cotação</button>`;
   }
-  nextOpts.filter(s => !['cotado','aprovado_cliente','reprovado_cliente'].includes(s)).forEach(s => {
-    footHtml += `<button class="btn btn-primary" onclick="avancarStatus('${itemId}','${s}')">${STATUS_LABEL[s]||s} →</button>`;
-  });
-  if (item.requer_calibracao && !item.data_calibracao) {
-    footHtml += `<button class="btn btn-pend" onclick="abrirModalCalibracao('${itemId}')">🔬 Registrar Calibração</button>`;
+  if (item.requer_calibracao) {
+    footHtml += `<button class="btn btn-pend" onclick="abrirModalCalibracao('${itemId}')">🔬 ${item.data_calibracao ? 'Atualizar' : 'Registrar'} Calibração</button>`;
   }
   document.getElementById('drawer-foot').innerHTML = footHtml;
 
   document.getElementById('item-drawer').classList.add('open');
   document.getElementById('drawer-overlay').classList.add('open');
+}
+
+// Called when user picks a new status in drawer selector
+function onDrawerStatusChange(itemId) {
+  const sel = document.getElementById('drawer-status-sel');
+  const warn = document.getElementById('drawer-change-warn');
+  const confirmBar = document.getElementById('drawer-confirm-bar');
+  const novoStatus = sel.value;
+
+  if (!novoStatus) {
+    warn.classList.remove('visible');
+    confirmBar.classList.add('hidden');
+    return;
+  }
+
+  const item = DB.itens.find(i => i.id_item === itemId);
+  const pipeline = item?.instalado_imediatamente ? PIPELINE_CURTO : PIPELINE_NORMAL;
+  const curIdx = pipeline.indexOf(item?.status);
+  const newIdx = pipeline.indexOf(novoStatus);
+  const isRetrocesso = newIdx >= 0 && newIdx < curIdx;
+
+  warn.classList.add('visible');
+  if (isRetrocesso) {
+    warn.innerHTML = `⚠️ <strong>Retrocesso de status:</strong> o item voltará de <em>${STATUS_LABEL[item.status]}</em> para <em>${STATUS_LABEL[novoStatus]||novoStatus}</em>. Confirme apenas se tiver certeza.`;
+    warn.style.cssText = 'display:block;background:#fee2e2;border-color:#fecaca;color:#991b1b';
+  } else {
+    warn.innerHTML = `Mover de <em>${STATUS_LABEL[item?.status]}</em> → <strong>${STATUS_LABEL[novoStatus]||novoStatus}</strong>`;
+    warn.style.cssText = 'display:block;background:#fef9c3;border-color:#fde68a;color:#92400e';
+  }
+  confirmBar.classList.remove('hidden');
+}
+
+function cancelarMudancaStatus() {
+  const sel = document.getElementById('drawer-status-sel');
+  const warn = document.getElementById('drawer-change-warn');
+  const confirmBar = document.getElementById('drawer-confirm-bar');
+  if (sel) sel.value = '';
+  if (warn) { warn.classList.remove('visible'); warn.style.display = 'none'; }
+  if (confirmBar) confirmBar.classList.add('hidden');
+}
+
+async function confirmarMudancaStatus(itemId) {
+  const sel = document.getElementById('drawer-status-sel');
+  const novoStatus = sel?.value;
+  if (!novoStatus) return;
+  await avancarStatus(itemId, novoStatus);
+  cancelarMudancaStatus();
 }
 
 function closeDrawer() {
