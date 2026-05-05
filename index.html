@@ -2347,16 +2347,39 @@ function populatePipeOSFilter() {
 async function avancarStatus(itemId, novoStatus) {
   const item = DB.itens.find(i => i.id_item === itemId);
   if (!item) return;
+
   const old = item.status;
-  item.status = novoStatus;
+
   if (GAS_URL) {
-    try { await gasPost('atualizarStatusItem', { id_item: itemId, status_novo: novoStatus, status_anterior: old, responsavel: 'ADM' }); } catch(e) {}
+    try {
+      const r = await gasPost('atualizarStatusItem', {
+        id_item: itemId,
+        novo_status: novoStatus,
+        status_anterior: old,
+        responsavel: 'ADM'
+      });
+
+      if (!r || r.status !== 'ok') {
+        showToast('Erro ao salvar status na GAS: ' + (r?.mensagem || r?.codigo || 'falha desconhecida'), 'err');
+        return;
+      }
+    } catch (e) {
+      showToast('Erro de comunicação ao salvar status: ' + e.message, 'err');
+      return;
+    }
   }
+
+  item.status = novoStatus;
+
   renderPipeline();
   renderDashboard();
   updateBadges();
+
   showToast('Status atualizado: ' + (STATUS_LABEL[novoStatus] || novoStatus) + ' ✓');
-  if (_drawerItemId === itemId) openDrawer(itemId);
+
+  if (typeof _drawerItemId !== 'undefined' && _drawerItemId === itemId) {
+    openDrawer(itemId);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2738,7 +2761,7 @@ function togOpt(el, group) {
 // ── VIEW SWITCHING ────────────────────────────────────────────
 const VIEW_CONFIG = {
   dashboard:     { title: 'Dashboard',                   btnLabel: '🔄 Atualizar',        newFn: () => { renderDashboard(); showToast('Dashboard atualizado'); } },
-  pipeline:      { title: 'Pipeline de Itens',           btnLabel: '🔄 Sincronizar',      newFn: () => syncGAS().then(renderPipeline) },
+  pipeline:      { title: 'Pipeline de Itens',           btnLabel: '🔄 Atualizar tela',   newFn: () => { renderPipeline(); showToast('Pipeline atualizado na tela'); } },
   calibracao:    { title: 'Calibração e Lacre',          btnLabel: '🔄 Sincronizar',      newFn: () => syncGAS().then(renderCalibracao) },
   clientes:      { title: 'Clientes',                    btnLabel: '+ Novo Cliente',     newFn: () => abrirModalCliente() },
   os:            { title: 'Ordens de Serviço',           btnLabel: '+ Nova OS',          newFn: () => abrirModalOS() },
