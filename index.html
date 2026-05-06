@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TapParts S3 — Engetap</title>
+<title>TapParts S4 — Engetap</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -135,6 +135,53 @@ body { background: var(--bg); color: var(--text); font-family: var(--body); font
 .venc-ok { background: #dcfce7; color: #166534; }
 .venc-warn { background: #fef3c7; color: #92400e; }
 .venc-exp { background: #fee2e2; color: #991b1b; }
+
+/* ── S4: CALIBRAÇÃO APRIMORADA ── */
+.calib-stat-bar { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+.calib-stat { background: var(--surf); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+.calib-stat.danger { border-left: 4px solid var(--danger); }
+.calib-stat.warn   { border-left: 4px solid var(--warn); }
+.calib-stat.ok     { border-left: 4px solid var(--ok); }
+.calib-stat.pend   { border-left: 4px solid var(--pend); }
+.cs-val { font-family: var(--head); font-size: 30px; font-weight: 700; color: var(--text); line-height: 1; }
+.cs-lbl { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .7px; }
+
+.calib-card-det { background: var(--surf2); border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 12px; }
+.calib-card-det .cd-row { display: flex; justify-content: space-between; padding: 3px 0; }
+.calib-card-det .cd-label { color: var(--text2); }
+.calib-card-det .cd-val { font-weight: 600; color: var(--text); }
+
+.hist-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+.hist-table th { padding: 6px 10px; font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; background: var(--surf2); border-bottom: 1px solid var(--border); text-align: left; }
+.hist-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.hist-table tr:last-child td { border-bottom: none; }
+
+.calib-pipeline-steps { display: flex; align-items: center; gap: 0; margin-bottom: 20px; flex-wrap: wrap; }
+.cps-step { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cps-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 2px solid var(--border); background: var(--surf); color: var(--text3); }
+.cps-dot.done { background: var(--ok); border-color: var(--ok); color: #fff; }
+.cps-dot.curr { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cps-dot.warn { background: var(--warn); border-color: var(--warn); color: #fff; }
+.cps-lbl { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+.cps-lbl.done { color: var(--ok); }
+.cps-lbl.curr { color: var(--accent); }
+.cps-line { width: 28px; height: 2px; background: var(--border); margin: 0 2px; margin-top: -20px; }
+.cps-line.done { background: var(--ok); }
+
+.lacre-chip { display: inline-flex; align-items: center; gap: 4px; background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; border-radius: 20px; font-size: 11px; font-weight: 700; padding: 2px 8px; }
+
+.calib-card-v2 { background: var(--surf); border: 1px solid var(--border); border-radius: var(--r); padding: 0; overflow: hidden; transition: border-color .15s; }
+.calib-card-v2:hover { border-color: var(--accent); }
+.ccv2-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
+.ccv2-body { padding: 12px 16px; }
+.ccv2-foot { padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surf2); display: flex; gap: 6px; flex-wrap: wrap; }
+.ccv2-title { font-weight: 700; font-size: 14px; color: var(--text); }
+.ccv2-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.ccv2-stat-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+
+.status-em-calib { background: #ede9fe; color: #5b21b6; }
+.calib-section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.calib-section-hdr h4 { font-family: var(--head); font-size: 15px; font-weight: 700; color: var(--text); }
 
 /* ── MAIN ── */
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -595,17 +642,47 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 
     <!-- ══ VIEW: CALIBRAÇÃO E LACRE ══ -->
     <div class="view" id="view-calibracao">
+
+      <!-- KPI bar S4 -->
+      <div class="calib-stat-bar" id="calib-kpi-bar">
+        <div class="calib-stat danger"><div class="cs-val" id="ck-vencido">0</div><div class="cs-lbl">Vencidos</div></div>
+        <div class="calib-stat warn"><div class="cs-val" id="ck-vencendo">0</div><div class="cs-lbl">Vencendo em 30 dias</div></div>
+        <div class="calib-stat pend"><div class="cs-val" id="ck-pendente">0</div><div class="cs-lbl">Pendentes (sem registro)</div></div>
+        <div class="calib-stat ok"><div class="cs-val" id="ck-ok">0</div><div class="cs-lbl">OK / Em dia</div></div>
+      </div>
+
       <div class="pipeline-filter-bar">
         <div class="search-wrap" style="flex:2;min-width:220px">
           <input type="text" id="calib-search" placeholder="Buscar por item, TAG, OS, cliente..." oninput="renderCalibracao()">
         </div>
         <select class="filter-select" id="calib-status-filter" onchange="renderCalibracao()">
-          <option value="">Todos</option>
+          <option value="">Todos com calibração NR-13</option>
           <option value="pendente">Pendentes (sem registro)</option>
+          <option value="em_calib">Em calibração agora</option>
           <option value="registrado">Com registro</option>
           <option value="vencendo">Vencendo em 30 dias</option>
           <option value="vencido">Vencidos</option>
         </select>
+        <select class="filter-select" id="calib-tipo-filter" onchange="renderCalibracao()">
+          <option value="">Interna + Externa</option>
+          <option value="interna">Só interna</option>
+          <option value="externa">Só externa</option>
+        </select>
+      </div>
+
+      <!-- Seção: Em Calibração (aguardando registro) -->
+      <div id="calib-em-calib-section" style="margin-bottom:20px;display:none">
+        <div class="calib-section-hdr">
+          <h4>🔬 Em Calibração Agora</h4>
+          <span class="badge badge-pend" id="cnt-em-calib">0</span>
+        </div>
+        <div class="calib-grid" id="calib-em-calib-list"></div>
+      </div>
+
+      <!-- Seção principal -->
+      <div class="calib-section-hdr">
+        <h4>Todos os Itens com Calibração NR-13</h4>
+        <span class="badge badge-gray" id="cnt-calib-total">0 itens</span>
       </div>
       <div id="calib-container"></div>
     </div>
@@ -916,18 +993,24 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 
 <!-- ══ MODAL: REGISTRAR CALIBRAÇÃO ══ -->
 <div class="modal-overlay" id="modal-calibracao">
-  <div class="modal">
+  <div class="modal modal-lg">
     <div class="modal-head">
       <h3 id="modal-calib-title">Registrar Calibração</h3>
       <button class="modal-close" onclick="closeModal('modal-calibracao')">×</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="calib-item-id">
+
+      <!-- Pipeline steps visual -->
+      <div id="calib-pipeline-vis" style="margin-bottom:16px"></div>
+
+      <div class="info-box" id="calib-item-info" style="margin-bottom:14px"></div>
+
       <div class="field">
         <label>Tipo de Calibração *</label>
         <div class="toggle-row">
-          <div class="tog-opt sel" onclick="togOpt(this,'calib-tipo')">Interna (bancada)</div>
-          <div class="tog-opt" onclick="togOpt(this,'calib-tipo')">Externa (laboratório)</div>
+          <div class="tog-opt sel" onclick="togOpt(this,'calib-tipo');onCalibTipoChange()">🏭 Interna (bancada)</div>
+          <div class="tog-opt" onclick="togOpt(this,'calib-tipo');onCalibTipoChange()">🔬 Externa (laboratório)</div>
         </div>
       </div>
       <div class="field-row">
@@ -936,7 +1019,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
           <input type="date" id="calib-data">
         </div>
         <div class="field">
-          <label>Validade (data) *</label>
+          <label>Validade *</label>
           <input type="date" id="calib-validade">
         </div>
       </div>
@@ -951,21 +1034,71 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
         </div>
       </div>
       <div class="field" id="calib-lab-field" style="display:none">
-        <label>Laboratório</label>
-        <input type="text" id="calib-lab" placeholder="Nome do laboratório externo">
+        <label>Laboratório *</label>
+        <input type="text" id="calib-lab" placeholder="Nome do laboratório externo (ex: Metrológica MG)">
       </div>
-      <div class="field">
-        <label>Responsável</label>
-        <input type="text" id="calib-resp" placeholder="Nome do técnico responsável">
+      <div class="field-row">
+        <div class="field">
+          <label>Responsável</label>
+          <input type="text" id="calib-resp" placeholder="Nome do técnico responsável">
+        </div>
+        <div class="field" id="calib-lacre-extra-field">
+          <label>Lacre adicional (opcional)</label>
+          <input type="text" id="calib-lacre2" placeholder="2º lacre se houver">
+        </div>
       </div>
       <div class="field">
         <label>Observações</label>
-        <textarea id="calib-obs" rows="2" placeholder="Observações sobre a calibração..."></textarea>
+        <textarea id="calib-obs" rows="2" placeholder="Observações sobre a calibração, condições do ensaio, etc."></textarea>
+      </div>
+
+      <!-- Histórico de calibrações anteriores -->
+      <div id="calib-hist-block" style="display:none">
+        <div class="section-hdr">Histórico de Calibrações Anteriores</div>
+        <table class="hist-table" id="calib-hist-table">
+          <thead><tr><th>Data</th><th>Tipo</th><th>Certificado</th><th>Lacre</th><th>Validade</th><th>Laboratório</th></tr></thead>
+          <tbody id="calib-hist-body"></tbody>
+        </table>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-calibracao')">Cancelar</button>
+      <button class="btn btn-warn" onclick="marcarEmCalibracao()" id="btn-marcar-em-calib" style="display:none">🔬 Marcar como Em Calibração</button>
       <button class="btn btn-primary" onclick="salvarCalibracao()">💾 Salvar Calibração</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: REGISTRAR LACRE AVULSO ══ -->
+<div class="modal-overlay" id="modal-lacre">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Registrar Lacre</h3>
+      <button class="modal-close" onclick="closeModal('modal-lacre')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lacre-item-id">
+      <div class="info-box" id="lacre-item-info"></div>
+      <div class="field">
+        <label>Nº Lacre *</label>
+        <input type="text" id="lacre-num" placeholder="Ex: LAC-0082">
+      </div>
+      <div class="field">
+        <label>Data do Lacre *</label>
+        <input type="date" id="lacre-data">
+      </div>
+      <div class="field">
+        <label>Responsável</label>
+        <input type="text" id="lacre-resp" placeholder="Nome do técnico">
+      </div>
+      <div class="field">
+        <label>Observações</label>
+        <textarea id="lacre-obs" rows="2" placeholder="Observações sobre o lacre..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-lacre')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarLacre()">💾 Salvar Lacre</button>
     </div>
   </div>
 </div>
@@ -1098,13 +1231,15 @@ function initDemoData() {
     },
   ];
   DB.itens = [
-    { id_item:'ACE-2026-001', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-001', tag_equipamento:'VP-01', cliente:'Gerdau — Divinópolis', tipo_acessorio:'Manômetro', descricao_curta:'Manômetro Glicerinado 100mm · 1/4" NPT · 0–14 kgf', quantidade:2, requer_calibracao:false, instalado_imediatamente:false, status:'aguardando_cotacao', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'' },
-    { id_item:'ACE-2026-002', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-001', tag_equipamento:'VP-01', cliente:'Gerdau — Divinópolis', tipo_acessorio:'Válvula de Segurança', descricao_curta:'Válvula Seg. 1/2" AR · PA=10 kgf · Aço inox · Leser', quantidade:1, requer_calibracao:true, instalado_imediatamente:false, status:'cotado', fornecedor:'Leser Brasil', valor_cotado:'420.00', prazo_entrega:'7 dias úteis', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'' },
-    { id_item:'ACE-2026-003', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-002', tag_equipamento:'VP-02', cliente:'Gerdau — Divinópolis', tipo_acessorio:'Manômetro', descricao_curta:'Manômetro Glicerinado 63mm · 1/4" NPT · 0–14 kgf', quantidade:1, requer_calibracao:false, instalado_imediatamente:true, status:'instalado_campo', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'' },
-    { id_item:'ACE-2026-004', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-002', tag_equipamento:'VP-02', cliente:'Gerdau — Divinópolis', tipo_acessorio:'DCBI', descricao_curta:'DCBI 1/4" Completo — válvula tripartida + niples + joelho + lacre', quantidade:1, requer_calibracao:false, instalado_imediatamente:false, status:'aprovado_cliente', fornecedor:'Engetap (estoque)', valor_cotado:'85.00', prazo_entrega:'Imediato', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'' },
-    { id_item:'ACE-2026-005', id_levantamento:'LEV-2026-002', id_os:'OS-002', id_equipamento:'EQ-003', tag_equipamento:'CAL-01', cliente:'Farmax Farmacêutica', tipo_acessorio:'Manômetro', descricao_curta:'Manômetro Glicerinado 100mm Angular · 1/2" NPT · 0–21 kgf', quantidade:3, requer_calibracao:false, instalado_imediatamente:false, status:'aguardando_cotacao', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'' },
-    { id_item:'ACE-2026-006', id_levantamento:'LEV-2026-002', id_os:'OS-002', id_equipamento:'EQ-003', tag_equipamento:'CAL-01', cliente:'Farmax Farmacêutica', tipo_acessorio:'Válvula de Segurança', descricao_curta:'Válvula Seg. 3/4" AR · PA=8 kgf · Aço inox · Leser', quantidade:1, requer_calibracao:true, instalado_imediatamente:false, status:'pecas_recebidas', fornecedor:'Leser Brasil', valor_cotado:'380.00', prazo_entrega:'5 dias úteis', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'' },
-    { id_item:'ACE-2026-007', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-001', tag_equipamento:'VP-01', cliente:'Gerdau — Divinópolis', tipo_acessorio:'Válvula de Segurança', descricao_curta:'Válvula Seg. 1/2" AR · PA=10 kgf — alta pressão', quantidade:1, requer_calibracao:true, instalado_imediatamente:true, status:'instalado_campo', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'2026-04-22', num_certificado:'CERT-2026-0341', num_lacre:'LAC-0080', validade_calibracao:'2027-04-22' },
+    { id_item:'ACE-2026-001', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-001', tag_equipamento:'VP-01', cliente:'Gerdau — Divinópolis', tipo_acessorio:'Manômetro', descricao_curta:'Manômetro Glicerinado 100mm · 1/4" NPT · 0–14 kgf', quantidade:2, requer_calibracao:false, instalado_imediatamente:false, status:'aguardando_cotacao', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'', lab_calibracao:'' },
+    { id_item:'ACE-2026-002', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-001', tag_equipamento:'VP-01', cliente:'Gerdau — Divinópolis', tipo_acessorio:'Válvula de Segurança', descricao_curta:'Válvula Seg. 1/2" AR · PA=10 kgf · Aço inox · Leser', quantidade:1, requer_calibracao:true, instalado_imediatamente:false, status:'em_calibracao', fornecedor:'Leser Brasil', valor_cotado:'420.00', prazo_entrega:'7 dias úteis', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'', lab_calibracao:'' },
+    { id_item:'ACE-2026-003', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-002', tag_equipamento:'VP-02', cliente:'Gerdau — Divinópolis', tipo_acessorio:'Manômetro', descricao_curta:'Manômetro Glicerinado 63mm · 1/4" NPT · 0–14 kgf', quantidade:1, requer_calibracao:false, instalado_imediatamente:true, status:'instalado_campo', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'', lab_calibracao:'' },
+    { id_item:'ACE-2026-004', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-002', tag_equipamento:'VP-02', cliente:'Gerdau — Divinópolis', tipo_acessorio:'DCBI', descricao_curta:'DCBI 1/4" Completo — válvula tripartida + niples + joelho + lacre', quantidade:1, requer_calibracao:false, instalado_imediatamente:false, status:'aprovado_cliente', fornecedor:'Engetap (estoque)', valor_cotado:'85.00', prazo_entrega:'Imediato', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'', lab_calibracao:'' },
+    { id_item:'ACE-2026-005', id_levantamento:'LEV-2026-002', id_os:'OS-002', id_equipamento:'EQ-003', tag_equipamento:'CAL-01', cliente:'Farmax Farmacêutica', tipo_acessorio:'Manômetro', descricao_curta:'Manômetro Glicerinado 100mm Angular · 1/2" NPT · 0–21 kgf', quantidade:3, requer_calibracao:false, instalado_imediatamente:false, status:'aguardando_cotacao', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'', lab_calibracao:'' },
+    { id_item:'ACE-2026-006', id_levantamento:'LEV-2026-002', id_os:'OS-002', id_equipamento:'EQ-003', tag_equipamento:'CAL-01', cliente:'Farmax Farmacêutica', tipo_acessorio:'Válvula de Segurança', descricao_curta:'Válvula Seg. 3/4" AR · PA=8 kgf · Aço inox · Leser', quantidade:1, requer_calibracao:true, instalado_imediatamente:false, status:'pecas_recebidas', fornecedor:'Leser Brasil', valor_cotado:'380.00', prazo_entrega:'5 dias úteis', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'', lab_calibracao:'' },
+    { id_item:'ACE-2026-007', id_levantamento:'LEV-2026-001', id_os:'OS-001', id_equipamento:'EQ-001', tag_equipamento:'VP-01', cliente:'Gerdau — Divinópolis', tipo_acessorio:'Válvula de Segurança', descricao_curta:'Válvula Seg. 1/2" AR · PA=10 kgf — alta pressão', quantidade:1, requer_calibracao:true, instalado_imediatamente:true, status:'calibrado', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'2026-04-22', num_certificado:'CERT-2026-0341', num_lacre:'LAC-0080', validade_calibracao:'2027-04-22', lab_calibracao:'' },
+    { id_item:'ACE-2026-008', id_levantamento:'LEV-2026-002', id_os:'OS-002', id_equipamento:'EQ-004', tag_equipamento:'TQ-01', cliente:'Farmax Farmacêutica', tipo_acessorio:'Válvula de Segurança', descricao_curta:'Válvula Seg. 1" Vapor · PA=6 kgf · Aço carbono · Farago', quantidade:2, requer_calibracao:true, instalado_imediatamente:false, status:'em_calibracao', fornecedor:'Farago', valor_cotado:'290.00', prazo_entrega:'10 dias', data_calibracao:'', num_certificado:'', num_lacre:'', validade_calibracao:'', lab_calibracao:'Metrológica MG' },
+    { id_item:'ACE-2026-009', id_levantamento:'LEV-2026-002', id_os:'OS-002', id_equipamento:'EQ-003', tag_equipamento:'CAL-01', cliente:'Farmax Farmacêutica', tipo_acessorio:'Válvula de Segurança', descricao_curta:'Válvula Seg. 3/4" Vapor · PA=5 kgf · Inox · Leser (vencida)', quantidade:1, requer_calibracao:true, instalado_imediatamente:false, status:'calibrado', fornecedor:'', valor_cotado:'', prazo_entrega:'', data_calibracao:'2024-01-10', num_certificado:'CERT-2024-0099', num_lacre:'LAC-0031', validade_calibracao:'2025-01-10', lab_calibracao:'' },
   ];
 }
 
@@ -2168,7 +2303,8 @@ function renderDashboard() {
   const cotado = countStatus('cotado') + countStatus('proposta_erp');
   const aprovado = countStatus('aprovado_cliente');
   const prontos = countStatus('pronto_campo');
-  const calibPend = itens.filter(i => i.requer_calibracao && !i.data_calibracao && ['instalado_campo','pronto_campo','pecas_recebidas'].includes(i.status)).length;
+  const calibPend = itens.filter(i => String(i.requer_calibracao) === 'true' && !i.data_calibracao && ['instalado_campo','pronto_campo','pecas_recebidas','em_calibracao'].includes(i.status)).length;
+  const calibVenc = itens.filter(i => String(i.requer_calibracao) === 'true' && i.validade_calibracao && new Date(i.validade_calibracao) <= new Date()).length;
   const osAtivas = DB.os.filter(o => o.status !== 'Encerrada').length;
 
   document.getElementById('dash-kpis').innerHTML = `
@@ -2190,7 +2326,7 @@ function renderDashboard() {
     <div class="dash-card pend">
       <div class="dc-label">Calibrações Pend.</div>
       <div class="dc-value">${calibPend}</div>
-      <div class="dc-sub">requerem registro NR-13</div>
+      <div class="dc-sub">${calibVenc > 0 ? `⚠ ${calibVenc} vencida(s)` : 'requerem registro NR-13'}</div>
     </div>
     <div class="dash-card accent">
       <div class="dc-label">OS Abertas</div>
@@ -2493,7 +2629,10 @@ function openDrawer(itemId) {
     <div class="info-row"><span class="ir-label">Data Calibração</span><span class="ir-val">${fmt(item.data_calibracao)}</span></div>
     <div class="info-row"><span class="ir-label">Validade</span><span class="ir-val">${fmt(item.validade_calibracao)}</span></div>
     <div class="info-row"><span class="ir-label">Nº Certificado</span><span class="ir-val">${item.num_certificado||'—'}</span></div>
-    <div class="info-row"><span class="ir-label">Nº Lacre</span><span class="ir-val">${item.num_lacre||'—'}</span></div>` : ''}
+    <div class="info-row"><span class="ir-label">Nº Lacre</span><span class="ir-val">${item.num_lacre||'—'}</span></div>
+    <div class="info-row"><span class="ir-label">Laboratório</span><span class="ir-val">${item.lab_calibracao||'Interno (bancada)'}</span></div>` :
+    (item.requer_calibracao ? `<div class="section-hdr">Calibração e Lacre</div>
+    <div class="warn-box">⚠ ${item.status==='em_calibracao'?'Item em processo de calibração — aguardando registro.':'Calibração NR-13 pendente para este item.'}</div>` : '')}
   `;
 
   // Footer: only secondary actions, NO quick status chips
@@ -2503,6 +2642,7 @@ function openDrawer(itemId) {
   }
   if (item.requer_calibracao) {
     footHtml += `<button class="btn btn-pend" onclick="abrirModalCalibracao('${itemId}')">🔬 ${item.data_calibracao ? 'Atualizar' : 'Registrar'} Calibração</button>`;
+    footHtml += `<button class="btn btn-ghost" onclick="abrirModalLacre('${itemId}')">🔒 Lacre</button>`;
   }
   document.getElementById('drawer-foot').innerHTML = footHtml;
 
@@ -2569,81 +2709,129 @@ function closeDrawer() {
 function renderCalibracao() {
   const q = (document.getElementById('calib-search')?.value || '').toLowerCase();
   const stFilter = document.getElementById('calib-status-filter')?.value || '';
-  const hoje = new Date();
+  const tipoFilter = document.getElementById('calib-tipo-filter')?.value || '';
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
   const em30 = new Date(); em30.setDate(em30.getDate() + 30);
 
-  let data = (DB.itens || []).filter(i => i.requer_calibracao);
+  let todos = (DB.itens || []).filter(i => String(i.requer_calibracao) === 'true');
 
+  // KPIs globais
+  const vencidos  = todos.filter(i => i.validade_calibracao && new Date(i.validade_calibracao) <= hoje).length;
+  const vencendo  = todos.filter(i => { if (!i.validade_calibracao) return false; const v=new Date(i.validade_calibracao); return v>hoje && v<=em30; }).length;
+  const pendentes = todos.filter(i => !i.data_calibracao).length;
+  const okCount   = todos.filter(i => i.data_calibracao && new Date(i.validade_calibracao) > em30).length;
+  const el = id => document.getElementById(id);
+  if(el('ck-vencido'))  el('ck-vencido').textContent  = vencidos;
+  if(el('ck-vencendo')) el('ck-vencendo').textContent = vencendo;
+  if(el('ck-pendente')) el('ck-pendente').textContent = pendentes;
+  if(el('ck-ok'))       el('ck-ok').textContent       = okCount;
+
+  // Badge sidebar
+  const pendCal = todos.filter(i => !i.data_calibracao).length;
+  const bCal = document.getElementById('badge-calib');
+  if (bCal) { bCal.textContent = pendCal; bCal.style.display = pendCal ? '' : 'none'; }
+
+  // Em calibração agora
+  const emCalib = todos.filter(i => i.status === 'em_calibracao');
+  const secEmCalib = el('calib-em-calib-section');
+  const cntEmCalib = el('cnt-em-calib');
+  if (secEmCalib) {
+    secEmCalib.style.display = emCalib.length && !stFilter ? '' : 'none';
+    if (cntEmCalib) cntEmCalib.textContent = emCalib.length;
+    const listEmCalib = el('calib-em-calib-list');
+    if (listEmCalib) listEmCalib.innerHTML = emCalib.map(i => buildCalibCard(i, true)).join('');
+  }
+
+  // Filtros principais
+  let data = [...todos];
   if (q) data = data.filter(i =>
     i.descricao_curta?.toLowerCase().includes(q) ||
     i.tag_equipamento?.toLowerCase().includes(q) ||
     i.cliente?.toLowerCase().includes(q) ||
     i.id_os?.toLowerCase().includes(q));
-
-  if (stFilter === 'pendente') data = data.filter(i => !i.data_calibracao);
+  if (stFilter === 'pendente')   data = data.filter(i => !i.data_calibracao);
+  if (stFilter === 'em_calib')   data = data.filter(i => i.status === 'em_calibracao');
   if (stFilter === 'registrado') data = data.filter(i => !!i.data_calibracao);
-  if (stFilter === 'vencendo') data = data.filter(i => {
-    if (!i.validade_calibracao) return false;
-    const v = new Date(i.validade_calibracao);
-    return v > hoje && v <= em30;
-  });
-  if (stFilter === 'vencido') data = data.filter(i => {
-    if (!i.validade_calibracao) return false;
-    return new Date(i.validade_calibracao) <= hoje;
-  });
+  if (stFilter === 'vencendo')   data = data.filter(i => { if(!i.validade_calibracao) return false; const v=new Date(i.validade_calibracao); return v>hoje && v<=em30; });
+  if (stFilter === 'vencido')    data = data.filter(i => i.validade_calibracao && new Date(i.validade_calibracao)<=hoje);
+  if (tipoFilter === 'externa')  data = data.filter(i => !!i.lab_calibracao);
+  if (tipoFilter === 'interna')  data = data.filter(i => i.data_calibracao && !i.lab_calibracao);
 
-  // Update badge
-  const pendCal = (DB.itens||[]).filter(i => i.requer_calibracao && !i.data_calibracao).length;
-  const bCal = document.getElementById('badge-calib');
-  if (bCal) { bCal.textContent = pendCal; bCal.style.display = pendCal ? '' : 'none'; }
+  const cnt = el('cnt-calib-total');
+  if (cnt) cnt.textContent = data.length + ' iten' + (data.length===1?'':'s');
 
   const container = document.getElementById('calib-container');
   if (!data.length) {
     container.innerHTML = '<div class="empty-state"><div class="ei">🔬</div>Nenhum item encontrado para calibração</div>';
     return;
   }
+  container.innerHTML = `<div class="calib-grid">${data.map(i => buildCalibCard(i, false)).join('')}</div>`;
+}
+
+function buildCalibCard(i, highlight) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const em30 = new Date(); em30.setDate(em30.getDate()+30);
+  const os = (DB.os||[]).find(o => o.id_os === i.id_os);
 
   const getVencBadge = (val) => {
     if (!val) return '<span class="venc-badge venc-warn">Sem registro</span>';
-    const v = new Date(val);
+    const v = new Date(val); v.setHours(0,0,0,0);
     if (v <= hoje) return '<span class="venc-badge venc-exp">⚠ Vencido</span>';
     if (v <= em30) return '<span class="venc-badge venc-warn">⏰ Vencendo</span>';
     return '<span class="venc-badge venc-ok">✓ OK</span>';
   };
 
-  container.innerHTML = `
-    <div class="calib-grid">${data.map(i => {
-      const os = DB.os.find(o => o.id_os === i.id_os);
-      return `<div class="calib-card">
-        <div class="calib-card-hdr">
-          <div>
-            <div class="calib-card-title">${i.descricao_curta}</div>
-            <div class="calib-card-sub">${i.tag_equipamento} · OS ${os?.numero_os||i.id_os} · ${i.cliente}</div>
-          </div>
-          ${getVencBadge(i.validade_calibracao)}
+  const pipeSteps = i.instalado_imediatamente
+    ? ['instalado_campo','em_calibracao','calibrado','concluido']
+    : ['pecas_recebidas','pronto_campo','em_calibracao','calibrado','concluido'];
+  const pipeLabels = {instalado_campo:'Campo',pecas_recebidas:'Recebido',pronto_campo:'Pronto',em_calibracao:'Calibrando',calibrado:'Calibrado',concluido:'Concluído'};
+  const curIdx = pipeSteps.indexOf(i.status);
+  const miniPipe = pipeSteps.map((s,idx) => {
+    const cls = idx < curIdx ? 'done' : idx === curIdx ? 'curr' : '';
+    return `<span style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;background:${cls==='done'?'#dcfce7':cls==='curr'?'#0ea5e9':'var(--surf2)'};color:${cls==='done'?'#166534':cls==='curr'?'#fff':'var(--text3)'};">${pipeLabels[s]||s}</span>`;
+  }).join(' → ');
+
+  const detRows = i.data_calibracao ? `
+    <div class="calib-card-det">
+      <div class="cd-row"><span class="cd-label">Calibrado em</span><span class="cd-val">${fmt(i.data_calibracao)}</span></div>
+      ${i.validade_calibracao?`<div class="cd-row"><span class="cd-label">Válido até</span><span class="cd-val">${fmt(i.validade_calibracao)}</span></div>`:''}
+      ${i.num_certificado?`<div class="cd-row"><span class="cd-label">Certificado</span><span class="cd-val">${i.num_certificado}</span></div>`:''}
+      ${i.num_lacre?`<div class="cd-row"><span class="cd-label">Lacre</span><span class="cd-val">${i.num_lacre}</span></div>`:''}
+      ${i.lab_calibracao?`<div class="cd-row"><span class="cd-label">Laboratório</span><span class="cd-val">${i.lab_calibracao}</span></div>`:''}
+    </div>` : `<div style="margin-top:10px;font-size:12px;color:var(--warn);font-weight:600">⚠ ${i.status==='em_calibracao'?'Em processo de calibração':'Calibração pendente'}</div>`;
+
+  const border = highlight ? 'border-color:var(--pend);border-width:2px' : '';
+  return `<div class="calib-card-v2" style="${border}">
+    <div class="ccv2-head">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="ccv2-title">${i.descricao_curta}</div>
+          <div class="ccv2-sub">${i.tag_equipamento} · OS ${os?.numero_os||i.id_os} · ${i.cliente||'—'}</div>
         </div>
-        <div class="calib-badges">
-          <span class="ps ${STATUS_CSS[i.status]||''}">${STATUS_LABEL[i.status]||i.status}</span>
-          ${i.num_certificado ? `<span class="badge badge-blue">Cert: ${i.num_certificado}</span>` : '<span class="badge badge-gray">Sem certificado</span>'}
-          ${i.num_lacre ? `<span class="badge badge-gray">Lacre: ${i.num_lacre}</span>` : ''}
-        </div>
-        ${i.data_calibracao ? `
-        <div style="margin-top:10px;font-size:12px;color:var(--text2)">
-          <div>📅 Calibrado em: <strong>${fmt(i.data_calibracao)}</strong></div>
-          ${i.validade_calibracao ? `<div>📅 Válido até: <strong>${fmt(i.validade_calibracao)}</strong></div>` : ''}
-        </div>` : `<div style="margin-top:10px;font-size:12px;color:var(--warn);font-weight:600">⚠ Calibração pendente</div>`}
-        <div class="calib-actions">
-          <button class="btn btn-pend btn-sm" onclick="abrirModalCalibracao('${i.id_item}')">🔬 ${i.data_calibracao ? 'Atualizar' : 'Registrar'} Calibração</button>
-          <button class="btn btn-ghost btn-sm" onclick="openDrawer('${i.id_item}')">👁 Detalhe</button>
-        </div>
-      </div>`;
-    }).join('')}</div>`;
+        ${getVencBadge(i.validade_calibracao)}
+      </div>
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+        <span class="ps ${STATUS_CSS[i.status]||''}">${STATUS_LABEL[i.status]||i.status}</span>
+        ${i.lab_calibracao?`<span class="lacre-chip">🔬 ${i.lab_calibracao}</span>`:''}
+        ${i.instalado_imediatamente?'<span class="badge badge-ok">Campo imediato</span>':''}
+      </div>
+    </div>
+    <div class="ccv2-body">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${miniPipe}</div>
+      ${detRows}
+    </div>
+    <div class="ccv2-foot">
+      <button class="btn btn-pend btn-sm" onclick="abrirModalCalibracao('${i.id_item}')">🔬 ${i.data_calibracao?'Atualizar':'Registrar'} Calibração</button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalLacre('${i.id_item}')">🔒 Lacre</button>
+      <button class="btn btn-ghost btn-sm" onclick="openDrawer('${i.id_item}')">👁 Detalhe</button>
+    </div>
+  </div>`;
 }
 
 function abrirModalCalibracao(itemId) {
   const item = DB.itens.find(i => i.id_item === itemId);
   if (!item) return;
-  document.getElementById('modal-calib-title').textContent = 'Calibração — ' + item.descricao_curta;
+  document.getElementById('modal-calib-title').textContent = item.descricao_curta;
   document.getElementById('calib-item-id').value = itemId;
   document.getElementById('calib-data').value = item.data_calibracao || new Date().toISOString().split('T')[0];
   document.getElementById('calib-validade').value = item.validade_calibracao || '';
@@ -2651,19 +2839,87 @@ function abrirModalCalibracao(itemId) {
   document.getElementById('calib-lacre').value = item.num_lacre || '';
   document.getElementById('calib-resp').value = '';
   document.getElementById('calib-obs').value = '';
-  document.getElementById('calib-lab').value = '';
-  // toggle tipo
-  document.querySelectorAll('[onclick*="calib-tipo"]').forEach((el,i) => el.classList.toggle('sel', i===0));
-  document.getElementById('calib-lab-field').style.display = 'none';
-  // show lab field on external toggle
-  document.querySelectorAll('[onclick*="calib-tipo"]').forEach(el => {
-    el.addEventListener('click', () => {
-      document.getElementById('calib-lab-field').style.display =
-        el.textContent.includes('Externa') ? '' : 'none';
-    }, { once: false });
+  document.getElementById('calib-lab').value = item.lab_calibracao || '';
+  document.getElementById('calib-lacre2').value = '';
+
+  // Info box
+  const os = (DB.os||[]).find(o => o.id_os === item.id_os);
+  document.getElementById('calib-item-info').innerHTML =
+    `<strong>${item.tipo_acessorio}</strong> — TAG: ${item.tag_equipamento} · OS: ${os?.numero_os||item.id_os} · Cliente: ${item.cliente||'—'}`;
+
+  // Pipeline visual
+  const steps = item.instalado_imediatamente
+    ? ['instalado_campo','em_calibracao','calibrado','concluido']
+    : ['pecas_recebidas','pronto_campo','em_calibracao','calibrado','concluido'];
+  const labels = {instalado_campo:'Campo',pecas_recebidas:'Recebido',pronto_campo:'Pronto p/ Campo',em_calibracao:'Em Calibração',calibrado:'Calibrado',concluido:'Concluído'};
+  const curIdx = steps.indexOf(item.status);
+  let pipeHtml = '<div class="calib-pipeline-steps">';
+  steps.forEach((s,idx) => {
+    const cls = idx < curIdx ? 'done' : idx===curIdx ? 'curr' : '';
+    const icon = idx < curIdx ? '✓' : idx===curIdx ? '●' : String(idx+1);
+    pipeHtml += `<div class="cps-step"><div class="cps-dot ${cls}">${icon}</div><div class="cps-lbl ${cls}">${labels[s]||s}</div></div>`;
+    if (idx < steps.length-1) pipeHtml += `<div class="cps-line ${idx<curIdx?'done':''}"></div>`;
   });
+  pipeHtml += '</div>';
+  document.getElementById('calib-pipeline-vis').innerHTML = pipeHtml;
+
+  // "Marcar em calibração" button — show only if status allows it
+  const podeMarcarEmCalib = ['pronto_campo','pecas_recebidas','instalado_campo'].includes(item.status);
+  const btnMark = document.getElementById('btn-marcar-em-calib');
+  if (btnMark) btnMark.style.display = podeMarcarEmCalib ? '' : 'none';
+
+  // Tipo toggle — reset
+  document.querySelectorAll('[onclick*="calib-tipo"]').forEach((el,i) => el.classList.toggle('sel', i===0));
+  document.getElementById('calib-lab-field').style.display = item.lab_calibracao ? '' : 'none';
+  if (item.lab_calibracao) {
+    // select external
+    const opts = document.querySelectorAll('[onclick*="calib-tipo"]');
+    if (opts[1]) { opts[0].classList.remove('sel'); opts[1].classList.add('sel'); }
+    document.getElementById('calib-lab-field').style.display = '';
+  }
+  // Rebuild tipo listener
+  document.querySelectorAll('[onclick*="calib-tipo"]').forEach(el => {
+    el._calibHandler && el.removeEventListener('click', el._calibHandler);
+    el._calibHandler = () => onCalibTipoChange();
+    el.addEventListener('click', el._calibHandler);
+  });
+
+  // Histórico
+  const histBlock = document.getElementById('calib-hist-block');
+  const histBody = document.getElementById('calib-hist-body');
+  const calibHist = (DB._calibHistorico||{})[itemId];
+  if (calibHist?.length && histBlock && histBody) {
+    histBlock.style.display = '';
+    histBody.innerHTML = calibHist.map(h =>
+      `<tr><td>${fmt(h.data)}</td><td>${h.tipo||'Interna'}</td><td>${h.cert||'—'}</td><td>${h.lacre||'—'}</td><td>${fmt(h.validade)||'—'}</td><td>${h.lab||'—'}</td></tr>`
+    ).join('');
+  } else if (histBlock) {
+    histBlock.style.display = 'none';
+  }
+
   closeDrawer();
   openModal('modal-calibracao');
+}
+
+function onCalibTipoChange() {
+  const tipo = getTogVal('calib-tipo') || '';
+  document.getElementById('calib-lab-field').style.display = tipo.includes('Externa') ? '' : 'none';
+}
+
+async function marcarEmCalibracao() {
+  const itemId = document.getElementById('calib-item-id').value;
+  const item = DB.itens.find(i => i.id_item === itemId);
+  if (!item) return;
+  const old = item.status;
+  item.status = 'em_calibracao';
+  if (GAS_URL) {
+    try {
+      await gasPost('atualizarStatusItem', { id_item: itemId, novo_status: 'em_calibracao', responsavel: 'ADM', observacao: 'Marcado como Em Calibração pelo TapParts S4' });
+    } catch(e) {}
+  }
+  closeModal('modal-calibracao');
+  renderCalibracao(); renderPipeline(); renderDashboard(); updateBadges();
+  showToast('Item marcado como Em Calibração');
 }
 
 async function salvarCalibracao() {
@@ -2673,34 +2929,95 @@ async function salvarCalibracao() {
   if (!data || !validade) { showToast('Data e validade são obrigatórias', 'err'); return; }
   const item = DB.itens.find(i => i.id_item === itemId);
   if (!item) return;
-  item.data_calibracao = data;
-  item.validade_calibracao = validade;
-  item.num_certificado = document.getElementById('calib-cert').value;
-  item.num_lacre = document.getElementById('calib-lacre').value;
+
   const tipo = getTogVal('calib-tipo') || 'Interna';
-  const lab = tipo.includes('Externa') ? document.getElementById('calib-lab').value : '';
+  const lab = tipo.includes('Externa') ? (document.getElementById('calib-lab').value || '').trim() : '';
+  if (tipo.includes('Externa') && !lab) { showToast('Informe o laboratório para calibração externa', 'err'); return; }
+
+  // Registra no histórico local antes de sobrescrever
+  if (!DB._calibHistorico) DB._calibHistorico = {};
+  if (!DB._calibHistorico[itemId]) DB._calibHistorico[itemId] = [];
+  if (item.data_calibracao) {
+    DB._calibHistorico[itemId].unshift({
+      data: item.data_calibracao, tipo: item._tipo_calibracao||'Interna',
+      cert: item.num_certificado, lacre: item.num_lacre,
+      validade: item.validade_calibracao, lab: item.lab_calibracao||''
+    });
+  }
+
+  item.data_calibracao    = data;
+  item.validade_calibracao = validade;
+  item.num_certificado    = document.getElementById('calib-cert').value;
+  item.num_lacre          = document.getElementById('calib-lacre').value;
+  item.lab_calibracao     = lab;
+  item._tipo_calibracao   = tipo;
   const old = item.status;
   if (['instalado_campo','pronto_campo','pecas_recebidas','em_calibracao'].includes(item.status)) {
     item.status = 'calibrado';
   }
+
   if (GAS_URL) {
     try {
       await gasPost('registrarCalibracao', {
-        id_item: itemId, data_calibracao: data, validade_calibracao: validade,
-        num_certificado: item.num_certificado, num_lacre: item.num_lacre,
-        tipo_calibracao: tipo, lab_calibracao: lab,
+        id_item: itemId,
+        data_calibracao: data,
+        validade_calibracao: validade,
+        num_certificado: item.num_certificado,
+        num_lacre: item.num_lacre,
+        tipo_calibracao: tipo,
+        lab_calibracao: lab,
         responsavel: document.getElementById('calib-resp').value,
         observacao: document.getElementById('calib-obs').value,
-        status_anterior: old, status_novo: item.status
+        status_anterior: old,
+        status_novo: item.status
+      });
+    } catch(e) { showToast('Erro ao salvar no GAS (dados salvos localmente)', 'warn'); }
+  }
+  closeModal('modal-calibracao');
+  renderCalibracao(); renderPipeline(); renderDashboard(); updateBadges();
+  showToast('Calibração registrada ✓');
+}
+
+function abrirModalLacre(itemId) {
+  const item = DB.itens.find(i => i.id_item === itemId);
+  if (!item) return;
+  document.getElementById('lacre-item-id').value = itemId;
+  document.getElementById('lacre-num').value = '';
+  document.getElementById('lacre-data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('lacre-resp').value = '';
+  document.getElementById('lacre-obs').value = '';
+  const os = (DB.os||[]).find(o => o.id_os === item.id_os);
+  document.getElementById('lacre-item-info').innerHTML =
+    `<strong>${item.descricao_curta}</strong> — TAG: ${item.tag_equipamento} · OS: ${os?.numero_os||item.id_os}`;
+  openModal('modal-lacre');
+}
+
+async function salvarLacre() {
+  const itemId = document.getElementById('lacre-item-id').value;
+  const num = document.getElementById('lacre-num').value.trim();
+  const data = document.getElementById('lacre-data').value;
+  if (!num) { showToast('Informe o número do lacre', 'err'); return; }
+  const item = DB.itens.find(i => i.id_item === itemId);
+  if (!item) return;
+  item.num_lacre = num;
+  if (GAS_URL) {
+    try {
+      await gasPost('registrarCalibracao', {
+        id_item: itemId,
+        num_lacre: num,
+        data_calibracao: item.data_calibracao || data,
+        validade_calibracao: item.validade_calibracao || '',
+        num_certificado: item.num_certificado || '',
+        lab_calibracao: item.lab_calibracao || '',
+        tipo_calibracao: 'Lacre avulso',
+        responsavel: document.getElementById('lacre-resp').value,
+        observacao: document.getElementById('lacre-obs').value
       });
     } catch(e) {}
   }
-  closeModal('modal-calibracao');
-  renderCalibracao();
-  renderPipeline();
-  renderDashboard();
-  updateBadges();
-  showToast('Calibração registrada ✓');
+  closeModal('modal-lacre');
+  renderCalibracao(); renderPipeline();
+  showToast('Lacre registrado ✓');
 }
 
 // ═══════════════════════════════════════════════════════════════
