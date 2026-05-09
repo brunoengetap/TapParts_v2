@@ -361,6 +361,35 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 /* ── ITEM PILL STATUS ── */
 .status-map { display: flex; gap: 6px; flex-wrap: wrap; }
 
+
+/* ── Sprint 6 ─ Histórico / Banco de Dados ─────────────────────── */
+.hist-tabs { display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
+.hist-tab { padding:7px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;
+            background:rgba(255,255,255,.06); color:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.1); transition:.15s; }
+.hist-tab:hover { background:rgba(255,255,255,.1); color:rgba(255,255,255,.85); }
+.hist-tab.active { background:rgba(14,165,233,.2); color:var(--accent2); border-color:rgba(14,165,233,.4); }
+.hist-filters { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:flex-end; }
+.hist-filters input, .hist-filters select { flex:1; min-width:160px; }
+.hist-filters .btn-filter { white-space:nowrap; }
+.timeline-list { display:flex; flex-direction:column; gap:0; }
+.tl-item { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.06); }
+.tl-item:last-child { border-bottom:none; }
+.tl-dot { width:10px; height:10px; border-radius:50%; background:var(--accent2); margin-top:5px; flex-shrink:0; }
+.tl-dot.criacao { background:#22c55e; }
+.tl-dot.status   { background:#0ea5e9; }
+.tl-dot.encerra  { background:#f59e0b; }
+.tl-dot.calib    { background:#8b5cf6; }
+.tl-dot.instalacao { background:#10b981; }
+.tl-ts { font-size:11px; color:rgba(255,255,255,.4); white-space:nowrap; flex-shrink:0; width:140px; }
+.tl-body { flex:1; }
+.tl-tipo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:rgba(255,255,255,.45); margin-bottom:2px; }
+.tl-desc { font-size:13px; color:rgba(255,255,255,.82); }
+.tl-meta { font-size:11px; color:rgba(255,255,255,.4); margin-top:2px; }
+.hist-empty { text-align:center; padding:40px; color:rgba(255,255,255,.3); font-size:14px; }
+.badge-fat-sim { background:#22c55e22; color:#22c55e; border:1px solid #22c55e44; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+.badge-fat-nao { background:#ef444422; color:#ef4444; border:1px solid #ef444444; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+.badge-fat-pend { background:#f59e0b22; color:#f59e0b; border:1px solid #f59e0b44; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+.modal-encerrar { max-width:540px; }
 </style>
 </head>
 <body>
@@ -371,7 +400,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
     <div class="logo-badge">TAP</div>
     <div>
       <div class="logo-name">Parts</div>
-      <div class="logo-sub">Engetap · S2</div>
+      <div class="logo-sub">Engetap · S6</div>
     </div>
   </div>
 
@@ -410,12 +439,17 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
     <span class="ni-icon">🧰</span> Kits de Instalação
   </div>
 
+  <div class="nav-section">Banco de Dados</div>
+  <div class="nav-item" onclick="setView('historico',this)" id="nav-historico">
+    <span class="ni-icon">🗂️</span> Histórico / Banco
+  </div>
+
   <div class="sidebar-bottom">
     <div class="gas-status" id="gasStatus">
       <div class="gas-dot spin" id="gasDot"></div>
       <span id="gasLabel">Conectando ao GAS…</span>
     </div>
-    <div style="margin-top:6px;font-size:10px;opacity:.5">TapParts · Sprint 2</div>
+    <div style="margin-top:6px;font-size:10px;opacity:.5">TapParts · Sprint 6</div>
   </div>
 </div>
 
@@ -532,6 +566,138 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
         <button class="btn btn-ghost btn-sm" onclick="toggleInativos()">👁 <span id="lblInativos">Mostrar inativos</span></button>
       </div>
       <div class="cat-grid" id="catGrid"></div>
+    </div>
+
+
+    <!-- ══ VIEW: HISTÓRICO / BANCO DE DADOS (Sprint 6) ══ -->
+    <div class="view" id="view-historico">
+      <div class="hist-tabs">
+        <div class="hist-tab active" id="htab-os"    onclick="setHistTab('os',this)">📋 Histórico de OS</div>
+        <div class="hist-tab"       id="htab-itens"  onclick="setHistTab('itens',this)">🔩 Histórico de Itens</div>
+        <div class="hist-tab"       id="htab-timeline" onclick="setHistTab('timeline',this)">⏱ Linha do Tempo</div>
+      </div>
+
+      <!-- ABA: OS -->
+      <div id="hist-pane-os">
+        <div class="hist-filters">
+          <input  type="text"   id="hf-os-cliente"  placeholder="Cliente..." oninput="buscarHistoricoOS()">
+          <input  type="text"   id="hf-os-numero"   placeholder="Nº OS..."   oninput="buscarHistoricoOS()">
+          <input  type="date"   id="hf-os-di"       onchange="buscarHistoricoOS()">
+          <input  type="date"   id="hf-os-df"       onchange="buscarHistoricoOS()">
+          <select id="hf-os-fat" onchange="buscarHistoricoOS()">
+            <option value="">Faturamento: todos</option>
+            <option value="sim">Com faturamento</option>
+            <option value="nao">Sem faturamento</option>
+            <option value="pendente">Pendente</option>
+          </select>
+          <button class="btn btn-primary btn-filter" onclick="buscarHistoricoOS()">🔍 Filtrar</button>
+          <button class="btn btn-ghost btn-filter"   onclick="limparFiltrosOS()">↺ Limpar</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr>
+              <th>Nº OS</th><th>Cliente</th><th>Abertura</th><th>Encerramento</th>
+              <th>Status</th><th>Itens</th><th>Conc.</th><th>Reprov.</th>
+              <th>Faturamento</th><th>Encerrada por</th><th>Ações</th>
+            </tr></thead>
+            <tbody id="tbl-hist-os"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ABA: ITENS -->
+      <div id="hist-pane-itens" style="display:none">
+        <div class="hist-filters">
+          <input  type="text"  id="hf-it-produto"    placeholder="Produto / descrição..." oninput="buscarHistoricoItens()">
+          <input  type="text"  id="hf-it-cliente"    placeholder="Cliente..."             oninput="buscarHistoricoItens()">
+          <input  type="text"  id="hf-it-fornecedor" placeholder="Fornecedor..."          oninput="buscarHistoricoItens()">
+          <input  type="text"  id="hf-it-os"         placeholder="Nº OS..."               oninput="buscarHistoricoItens()">
+          <select id="hf-it-tipo" onchange="buscarHistoricoItens()">
+            <option value="">Tipo: todos</option>
+            <option>Manômetro</option><option>Válvula de Segurança</option>
+            <option>Purgador</option><option>DCBI</option><option>Conexão</option>
+          </select>
+          <input  type="date"  id="hf-it-di" onchange="buscarHistoricoItens()">
+          <input  type="date"  id="hf-it-df" onchange="buscarHistoricoItens()">
+          <button class="btn btn-primary btn-filter" onclick="buscarHistoricoItens()">🔍 Filtrar</button>
+          <button class="btn btn-ghost btn-filter"   onclick="limparFiltrosItens()">↺ Limpar</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr>
+              <th>Produto</th><th>Tipo</th><th>Cliente</th><th>OS</th>
+              <th>TAG</th><th>Fornecedor</th><th>Qtd</th><th>Valor</th>
+              <th>Status final</th><th>Atualização</th><th>Ações</th>
+            </tr></thead>
+            <tbody id="tbl-hist-itens"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ABA: LINHA DO TEMPO -->
+      <div id="hist-pane-timeline" style="display:none">
+        <div class="hist-filters">
+          <input  type="text"  id="hf-tl-os"      placeholder="ID ou Nº da OS..." oninput="buscarTimeline()">
+          <input  type="text"  id="hf-tl-item"    placeholder="ID do Item..."     oninput="buscarTimeline()">
+          <input  type="date"  id="hf-tl-di"      onchange="buscarTimeline()">
+          <input  type="date"  id="hf-tl-df"      onchange="buscarTimeline()">
+          <button class="btn btn-primary btn-filter" onclick="buscarTimeline()">🔍 Filtrar</button>
+          <button class="btn btn-ghost btn-filter"   onclick="limparFiltrosTimeline()">↺ Limpar</button>
+        </div>
+        <div id="hist-timeline-result">
+          <div class="hist-empty">🔎 Informe o ID da OS ou Item e clique em Filtrar para ver a linha do tempo.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Encerrar OS (Sprint 6) -->
+    <div class="modal-overlay" id="modal-encerrar-os" style="display:none">
+      <div class="modal modal-encerrar">
+        <div class="modal-header">
+          <span class="modal-title">Encerrar OS</span>
+          <span class="modal-close" onclick="closeModal('modal-encerrar-os')">✕</span>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="enc-id-os">
+          <div class="form-group">
+            <label>OS</label>
+            <input type="text" id="enc-label-os" disabled style="opacity:.6">
+          </div>
+          <div class="form-group">
+            <label>Encerrada por</label>
+            <input type="text" id="enc-por" placeholder="Nome ou cargo">
+          </div>
+          <div class="form-group">
+            <label>Faturamento</label>
+            <select id="enc-fat">
+              <option value="pendente">Pendente de definição</option>
+              <option value="sim">Com faturamento</option>
+              <option value="nao">Sem faturamento</option>
+              <option value="nao_aplicavel">Não aplicável</option>
+            </select>
+          </div>
+          <div class="form-group" id="enc-motivo-wrap" style="display:none">
+            <label>Motivo sem faturamento</label>
+            <select id="enc-motivo-fat">
+              <option value="">Selecione...</option>
+              <option>Item reprovado pelo cliente</option>
+              <option>Serviço apenas vistoria</option>
+              <option>Peça instalada em garantia</option>
+              <option>Serviço interno</option>
+              <option>Não aprovado comercialmente</option>
+              <option>Outro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Observação</label>
+            <textarea id="enc-obs" rows="3" placeholder="Observação sobre o encerramento..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('modal-encerrar-os')">Cancelar</button>
+          <button class="btn btn-danger" onclick="confirmarEncerrarOS()">✅ Encerrar OS</button>
+        </div>
+      </div>
     </div>
 
     <!-- ══ VIEW: KITS ══ -->
@@ -1166,7 +1332,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwwNmB9qtdwNRy-n-dQt8u310jn7x6axhK1H5d4fYwBah5XKwboktbNGe5xBPAsvfvyoA/exec'; // TODO: colar URL do GAS aqui
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyCT8QC_oRMyN8rPbtOkT5W8zQ2MIrHzivixvHGEneV3bp6q7ck-MLXni_ptQdgtCUwxA/exec'; // TODO: colar URL do GAS aqui
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -3113,6 +3279,7 @@ const VIEW_CONFIG = {
   levantamentos: { title: 'Levantamentos FieldTap',      btnLabel: '🔄 Sincronizar',      newFn: () => syncLevantamentos().then(renderLevantamentos) },
   catalogo:      { title: 'Catálogo de Peças',           btnLabel: '+ Novo Item',        newFn: () => abrirModalCatalogo() },
   kits:          { title: 'Kits de Instalação',          btnLabel: '+ Novo Kit',         newFn: () => abrirModalKit() },
+  historico:     { title: 'Histórico / Banco de Dados',   btnLabel: '🔄 Atualizar',        newFn: () => buscarHistoricoOS() },
 };
 
 function setView(id, el) {
@@ -3129,6 +3296,7 @@ function setView(id, el) {
   if (id === 'dashboard') { renderDashboard(); }
   if (id === 'pipeline') { populatePipeOSFilter(); renderPipeline(); }
   if (id === 'calibracao') { renderCalibracao(); }
+  if (id === 'historico') { setHistTab('os', document.getElementById('htab-os')); buscarHistoricoOS(); }
 }
 
 function topNew() {
@@ -3260,20 +3428,345 @@ async function confirmarFase2() {
   showToast('✅ Fase 2 aberta — FieldTap atualizado');
 }
 
-async function encerrarOS(idOS) {
-  if (!confirm('Confirma encerramento da OS ' + idOS + '? Esta ação não pode ser desfeita.')) return;
-  const idx = DB.os.findIndex(o => o.id_os === idOS);
+// Sprint 6: encerrarOS agora abre modal com opções de faturamento
+function encerrarOS(idOS) {
+  const os = DB.os.find(o => o.id_os === idOS);
+  document.getElementById('enc-id-os').value = idOS;
+  document.getElementById('enc-label-os').value = (os ? os.numero_os + ' — ' + os.cliente : idOS);
+  document.getElementById('enc-por').value = '';
+  document.getElementById('enc-fat').value = 'pendente';
+  document.getElementById('enc-obs').value = '';
+  document.getElementById('enc-motivo-wrap').style.display = 'none';
+  document.getElementById('enc-fat').onchange = function() {
+    document.getElementById('enc-motivo-wrap').style.display =
+      (this.value === 'nao') ? '' : 'none';
+  };
+  openModal('modal-encerrar-os');
+}
+
+async function confirmarEncerrarOS() {
+  const idOS  = document.getElementById('enc-id-os').value;
+  const por   = document.getElementById('enc-por').value.trim() || 'adm';
+  const fat   = document.getElementById('enc-fat').value;
+  const motivo= document.getElementById('enc-motivo-fat').value;
+  const obs   = document.getElementById('enc-obs').value.trim();
+  if (!idOS) return;
   if (GAS_URL) {
     try {
-      await gasPost('avancarFaseOS', { id_os: idOS, nova_fase: 'encerrada' });
-    } catch(e) {}
+      await gasPost('encerrarOSHistorico', {
+        id_os: idOS,
+        encerrada_por: por,
+        teve_faturamento: fat,
+        motivo_sem_faturamento: fat === 'nao' ? motivo : '',
+        observacao_encerramento: obs,
+        origem_encerramento: 'TapParts'
+      });
+    } catch(e) { showToast('Aviso: GAS retornou erro (OS encerrada localmente)', 'warn'); }
   }
+  const idx = DB.os.findIndex(o => o.id_os === idOS);
   if (idx >= 0) { DB.os[idx].status = 'Encerrada'; DB.os[idx].fase_atual = 'encerrada'; }
+  closeModal('modal-encerrar-os');
   renderOS();
-  showToast('OS encerrada ✓');
+  showToast('OS encerrada e registrada no histórico ✓');
 }
 
 
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// SPRINT 6 — HISTÓRICO / BANCO DE DADOS
+// ═══════════════════════════════════════════════════════════════
+
+// Cache local para histórico (carregado sob demanda)
+const HIST = { os: null, itens: null, log: null };
+
+// ── Tabs ────────────────────────────────────────────────────────
+function setHistTab(tab, el) {
+  ['os','itens','timeline'].forEach(t => {
+    document.getElementById('hist-pane-' + t).style.display = (t === tab) ? '' : 'none';
+    document.getElementById('htab-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'os'    && !HIST.os)       buscarHistoricoOS();
+  if (tab === 'itens' && !HIST.itens)    buscarHistoricoItens();
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+function badgeFaturamento(v) {
+  if (v === 'sim')          return '<span class="badge-fat-sim">✅ Sim</span>';
+  if (v === 'nao')          return '<span class="badge-fat-nao">❌ Sem fat.</span>';
+  if (v === 'nao_aplicavel')return '<span class="badge-fat-pend">N/A</span>';
+  return '<span class="badge-fat-pend">⏳ Pendente</span>';
+}
+
+function tlDotClass(tipo) {
+  if (!tipo) return '';
+  const t = tipo.toLowerCase();
+  if (t.includes('criacao') || t.includes('criação')) return 'criacao';
+  if (t.includes('encerra')) return 'encerra';
+  if (t.includes('calib'))   return 'calib';
+  if (t.includes('instal') || t.includes('entrega')) return 'instalacao';
+  return 'status';
+}
+
+function fmtEvento(tipo) {
+  const mapa = {
+    CRIACAO_CLIENTE: 'Cliente criado',
+    CRIACAO_OS: 'OS criada',
+    AVANCO_FASE_OS: 'Fase avançada',
+    ENCERRAMENTO_OS: 'OS encerrada',
+    ENVIO_LEVANTAMENTO: 'Levantamento enviado',
+    ALTERACAO_STATUS_ITEM: 'Status do item alterado',
+    ATUALIZACAO_DADOS_ADM: 'Dados admin. atualizados',
+    REGISTRO_CALIBRACAO: 'Calibração registrada',
+    REGISTRO_INSTALACAO: 'Instalação registrada',
+    REGISTRO_ENTREGA: 'Entrega registrada',
+  };
+  return mapa[tipo] || tipo;
+}
+
+// ── Histórico de OS ──────────────────────────────────────────────
+async function buscarHistoricoOS() {
+  const params = {};
+  const cli  = (document.getElementById('hf-os-cliente') || {}).value?.trim();
+  const num  = (document.getElementById('hf-os-numero')  || {}).value?.trim();
+  const di   = (document.getElementById('hf-os-di')      || {}).value;
+  const df   = (document.getElementById('hf-os-df')      || {}).value;
+  const fat  = (document.getElementById('hf-os-fat')     || {}).value;
+  if (cli) params.cliente         = cli;
+  if (num) params.numero_os       = num;
+  if (di)  params.data_inicio     = di;
+  if (df)  params.data_fim        = df;
+  if (fat) params.teve_faturamento= fat;
+
+  const tbody = document.getElementById('tbl-hist-os');
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:rgba(255,255,255,.4)">Carregando...</td></tr>';
+
+  let lista = [];
+  if (GAS_URL) {
+    try {
+      const r = await gasGet('getHistoricoOS', params);
+      if (r.status === 'ok') lista = r.historico_os || [];
+    } catch(e) {}
+  }
+  // Fallback local: usa DB.os
+  if (!lista.length) {
+    lista = (DB.os || [])
+      .filter(o => {
+        if (cli && !((o.cliente||'').toLowerCase().includes(cli.toLowerCase()))) return false;
+        if (num && String(o.numero_os) !== num && String(o.id_os) !== num) return false;
+        if (fat && fat !== 'pendente') return false;
+        return true;
+      })
+      .map(o => ({
+        id_os: o.id_os, numero_os: o.numero_os || o.id_os,
+        cliente: o.cliente, data_abertura: o.data_abertura,
+        data_encerramento: '', status_final_os: o.status,
+        encerrada_por: '', teve_faturamento: 'pendente',
+        total_itens: '', total_itens_concluidos: '', total_itens_reprovados: ''
+      }));
+  }
+
+  HIST.os = lista;
+  renderTblHistOS(lista);
+}
+
+function renderTblHistOS(lista) {
+  const tbody = document.getElementById('tbl-hist-os');
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="hist-empty">Nenhum resultado encontrado.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lista.map(o => `
+    <tr>
+      <td><strong>${o.numero_os || o.id_os}</strong></td>
+      <td>${o.cliente || '—'}</td>
+      <td>${o.data_abertura || '—'}</td>
+      <td>${o.data_encerramento || '—'}</td>
+      <td><span class="pill">${o.status_final_os || '—'}</span></td>
+      <td>${o.total_itens || '—'}</td>
+      <td>${o.total_itens_concluidos || '—'}</td>
+      <td>${o.total_itens_reprovados || '—'}</td>
+      <td>${badgeFaturamento(o.teve_faturamento)}</td>
+      <td>${o.encerrada_por || '—'}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="verTimelineOS('${o.id_os}')">⏱ Timeline</button>
+        <button class="btn btn-ghost btn-sm" onclick="verItensHistOS('${o.id_os}')">🔩 Itens</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function limparFiltrosOS() {
+  ['hf-os-cliente','hf-os-numero','hf-os-di','hf-os-df'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('hf-os-fat').value = '';
+  buscarHistoricoOS();
+}
+
+// ── Histórico de Itens ───────────────────────────────────────────
+async function buscarHistoricoItens() {
+  const params = {};
+  const prod  = (document.getElementById('hf-it-produto')    || {}).value?.trim();
+  const cli   = (document.getElementById('hf-it-cliente')    || {}).value?.trim();
+  const forn  = (document.getElementById('hf-it-fornecedor') || {}).value?.trim();
+  const os_   = (document.getElementById('hf-it-os')         || {}).value?.trim();
+  const tipo  = (document.getElementById('hf-it-tipo')       || {}).value;
+  const di    = (document.getElementById('hf-it-di')         || {}).value;
+  const df    = (document.getElementById('hf-it-df')         || {}).value;
+  if (prod) params.produto       = prod;
+  if (cli)  params.cliente       = cli;
+  if (forn) params.fornecedor    = forn;
+  if (os_)  params.numero_os     = os_;
+  if (tipo) params.tipo_acessorio= tipo;
+  if (di)   params.data_inicio   = di;
+  if (df)   params.data_fim      = df;
+
+  const tbody = document.getElementById('tbl-hist-itens');
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:rgba(255,255,255,.4)">Carregando...</td></tr>';
+
+  let lista = [];
+  if (GAS_URL) {
+    try {
+      const r = await gasGet('getHistoricoItens', params);
+      if (r.status === 'ok') lista = r.itens || [];
+    } catch(e) {}
+  }
+  if (!lista.length && DB.itens) {
+    lista = DB.itens.filter(it => {
+      if (prod && !((it.descricao_curta||'')+' '+(it.tipo_acessorio||'')).toLowerCase().includes(prod.toLowerCase())) return false;
+      if (cli  && !(it.cliente||'').toLowerCase().includes(cli.toLowerCase()))        return false;
+      if (forn && !(it.fornecedor||'').toLowerCase().includes(forn.toLowerCase()))    return false;
+      if (os_  && String(it.id_os) !== os_)                                           return false;
+      if (tipo && !(it.tipo_acessorio||'').toLowerCase().includes(tipo.toLowerCase())) return false;
+      return true;
+    });
+  }
+
+  HIST.itens = lista;
+  const tbody2 = document.getElementById('tbl-hist-itens');
+  if (!lista.length) {
+    tbody2.innerHTML = '<tr><td colspan="11" class="hist-empty">Nenhum resultado encontrado.</td></tr>';
+    return;
+  }
+  tbody2.innerHTML = lista.map(it => `
+    <tr>
+      <td title="${it.descricao_curta||''}">${(it.descricao_curta||'').substring(0,35)}${(it.descricao_curta||'').length>35?'…':''}</td>
+      <td>${it.tipo_acessorio || '—'}</td>
+      <td>${it.cliente || '—'}</td>
+      <td>${it.id_os || '—'}</td>
+      <td>${it.tag_equipamento || '—'}</td>
+      <td>${it.fornecedor || '—'}</td>
+      <td>${it.quantidade || '—'}</td>
+      <td>${it.valor_cotado ? 'R$ ' + Number(it.valor_cotado).toFixed(2) : '—'}</td>
+      <td><span class="pill">${it.status || '—'}</span></td>
+      <td>${it.timestamp_atualizacao ? fmtDateTime(it.timestamp_atualizacao) : '—'}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="verTimelineItem('${it.id_item}')">⏱</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function limparFiltrosItens() {
+  ['hf-it-produto','hf-it-cliente','hf-it-fornecedor','hf-it-os','hf-it-di','hf-it-df'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('hf-it-tipo').value = '';
+  buscarHistoricoItens();
+}
+
+// ── Linha do Tempo ───────────────────────────────────────────────
+async function buscarTimeline() {
+  const os_   = (document.getElementById('hf-tl-os')   || {}).value?.trim();
+  const item_ = (document.getElementById('hf-tl-item') || {}).value?.trim();
+  const di    = (document.getElementById('hf-tl-di')   || {}).value;
+  const df    = (document.getElementById('hf-tl-df')   || {}).value;
+  const params = {};
+  if (os_)   params.id_os   = os_;
+  if (item_) params.id_item = item_;
+  if (di)    params.data_inicio = di;
+  if (df)    params.data_fim    = df;
+  const div = document.getElementById('hist-timeline-result');
+  div.innerHTML = '<div class="hist-empty">Carregando...</div>';
+  let eventos = [];
+  if (GAS_URL) {
+    try {
+      const r = await gasGet('getLogOperacional', params);
+      if (r.status === 'ok') eventos = r.eventos || [];
+    } catch(e) {}
+  }
+  // Fallback: usa HISTORICO_STATUS local
+  if (!eventos.length && DB.historico_status) {
+    eventos = DB.historico_status
+      .filter(h => !item_ || h.id_item === item_)
+      .map(h => ({
+        timestamp: h.timestamp, tipo_evento: 'ALTERACAO_STATUS_ITEM',
+        acao_realizada: `Status: ${h.status_anterior} → ${h.status_novo}`,
+        responsavel_nome: h.responsavel, id_item: h.id_item, observacao: h.observacao
+      }));
+  }
+  renderTimeline(eventos, os_, item_);
+}
+
+function renderTimeline(eventos, os_, item_) {
+  const div = document.getElementById('hist-timeline-result');
+  if (!eventos.length) {
+    div.innerHTML = '<div class="hist-empty">Nenhum evento encontrado para os filtros informados.</div>';
+    return;
+  }
+  // Ordena crescente (mais antigo primeiro)
+  const sorted = [...eventos].sort((a,b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+  const titulo = os_ ? `OS: ${os_}` : (item_ ? `Item: ${item_}` : 'Eventos');
+  div.innerHTML = `<div style="margin-bottom:12px;font-size:13px;font-weight:700;color:rgba(255,255,255,.6)">${titulo} — ${sorted.length} evento(s)</div>` +
+    '<div class="timeline-list">' +
+    sorted.map(ev => {
+      const cls = tlDotClass(ev.tipo_evento);
+      const ts  = ev.timestamp ? fmtDateTime(ev.timestamp) : '—';
+      const desc = ev.acao_realizada || fmtEvento(ev.tipo_evento);
+      const meta = [ev.responsavel_nome, ev.origem, ev.fornecedor, ev.valor ? 'R$ '+ev.valor : ''].filter(Boolean).join(' · ');
+      const extra = ev.status_anterior && ev.status_novo ? `<br><span style="font-size:11px;opacity:.6">${ev.status_anterior} → ${ev.status_novo}</span>` : '';
+      const obs = ev.observacao ? `<br><span style="font-size:11px;opacity:.5;font-style:italic">${ev.observacao}</span>` : '';
+      return `<div class="tl-item">
+        <div class="tl-dot ${cls}"></div>
+        <div class="tl-ts">${ts}</div>
+        <div class="tl-body">
+          <div class="tl-tipo">${fmtEvento(ev.tipo_evento)}</div>
+          <div class="tl-desc">${desc}${extra}${obs}</div>
+          ${meta ? `<div class="tl-meta">${meta}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('') +
+    '</div>';
+}
+
+function limparFiltrosTimeline() {
+  ['hf-tl-os','hf-tl-item','hf-tl-di','hf-tl-df'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('hist-timeline-result').innerHTML =
+    '<div class="hist-empty">🔎 Informe o ID da OS ou Item e clique em Filtrar para ver a linha do tempo.</div>';
+}
+
+// ── Atalhos ──────────────────────────────────────────────────────
+function verTimelineOS(idOS) {
+  document.getElementById('hf-tl-os').value   = idOS;
+  document.getElementById('hf-tl-item').value = '';
+  setHistTab('timeline', document.getElementById('htab-timeline'));
+  buscarTimeline();
+}
+function verTimelineItem(idItem) {
+  document.getElementById('hf-tl-item').value = idItem;
+  document.getElementById('hf-tl-os').value   = '';
+  setHistTab('timeline', document.getElementById('htab-timeline'));
+  buscarTimeline();
+}
+function verItensHistOS(idOS) {
+  document.getElementById('hf-it-os').value = idOS;
+  setHistTab('itens', document.getElementById('htab-itens'));
+  buscarHistoricoItens();
+}
 
 // GAS connection attempt
 setTimeout(() => {
