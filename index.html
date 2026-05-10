@@ -365,14 +365,14 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 /* ── Sprint 6 ─ Histórico / Banco de Dados ─────────────────────── */
 .hist-tabs { display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
 .hist-tab { padding:7px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;
-            background:rgba(255,255,255,.06); color:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.1); transition:.15s; }
-.hist-tab:hover { background:rgba(255,255,255,.1); color:rgba(255,255,255,.85); }
-.hist-tab.active { background:rgba(14,165,233,.2); color:var(--accent2); border-color:rgba(14,165,233,.4); }
+            background:var(--surf); color:var(--text2); border:1px solid var(--border); transition:.15s; }
+.hist-tab:hover { background:var(--surf2); color:var(--text); border-color:var(--accent); }
+.hist-tab.active { background:rgba(14,165,233,.12); color:var(--accent); border-color:var(--accent); font-weight:700; }
 .hist-filters { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:flex-end; }
 .hist-filters input, .hist-filters select { flex:1; min-width:160px; }
 .hist-filters .btn-filter { white-space:nowrap; }
 .timeline-list { display:flex; flex-direction:column; gap:0; }
-.tl-item { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.06); }
+.tl-item { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); }
 .tl-item:last-child { border-bottom:none; }
 .tl-dot { width:10px; height:10px; border-radius:50%; background:var(--accent2); margin-top:5px; flex-shrink:0; }
 .tl-dot.criacao { background:#22c55e; }
@@ -380,12 +380,12 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 .tl-dot.encerra  { background:#f59e0b; }
 .tl-dot.calib    { background:#8b5cf6; }
 .tl-dot.instalacao { background:#10b981; }
-.tl-ts { font-size:11px; color:rgba(255,255,255,.4); white-space:nowrap; flex-shrink:0; width:140px; }
+.tl-ts { font-size:11px; color:var(--text3); white-space:nowrap; flex-shrink:0; width:140px; }
 .tl-body { flex:1; }
-.tl-tipo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:rgba(255,255,255,.45); margin-bottom:2px; }
-.tl-desc { font-size:13px; color:rgba(255,255,255,.82); }
-.tl-meta { font-size:11px; color:rgba(255,255,255,.4); margin-top:2px; }
-.hist-empty { text-align:center; padding:40px; color:rgba(255,255,255,.3); font-size:14px; }
+.tl-tipo { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--text2); margin-bottom:2px; }
+.tl-desc { font-size:13px; color:var(--text); }
+.tl-meta { font-size:11px; color:var(--text2); margin-top:2px; }
+.hist-empty { text-align:center; padding:40px; color:var(--text2); font-size:14px; line-height:1.7; }
 .badge-fat-sim { background:#22c55e22; color:#22c55e; border:1px solid #22c55e44; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
 .badge-fat-nao { background:#ef444422; color:#ef4444; border:1px solid #ef444444; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
 .badge-fat-pend { background:#f59e0b22; color:#f59e0b; border:1px solid #f59e0b44; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
@@ -458,7 +458,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
   <div class="topbar">
     <div class="topbar-title" id="topTitle">Dashboard</div>
     <div class="topbar-actions">
-      <button class="btn btn-ghost" onclick="syncGAS()">🔄 Sincronizar</button>
+      <button class="btn btn-ghost" onclick="syncGAS()" title="Sincronização completa com o banco de dados (GAS)">🔄 Sincronizar GAS</button>
       <button class="btn btn-primary" id="btnTopNew" onclick="topNew()">🔄 Atualizar</button>
     </div>
   </div>
@@ -571,10 +571,13 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 
     <!-- ══ VIEW: HISTÓRICO / BANCO DE DADOS (Sprint 6) ══ -->
     <div class="view" id="view-historico">
-      <div class="hist-tabs">
-        <div class="hist-tab active" id="htab-os"    onclick="setHistTab('os',this)">📋 Histórico de OS</div>
-        <div class="hist-tab"       id="htab-itens"  onclick="setHistTab('itens',this)">🔩 Histórico de Itens</div>
-        <div class="hist-tab"       id="htab-timeline" onclick="setHistTab('timeline',this)">⏱ Linha do Tempo</div>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap;">
+        <div class="hist-tabs" style="margin-bottom:0">
+          <div class="hist-tab active" id="htab-os"       onclick="setHistTab('os',this)">📋 Histórico de OS</div>
+          <div class="hist-tab"       id="htab-itens"     onclick="setHistTab('itens',this)">🔩 Histórico de Itens</div>
+          <div class="hist-tab"       id="htab-timeline"  onclick="setHistTab('timeline',this)">⏱ Linha do Tempo</div>
+        </div>
+        <span id="hist-breadcrumb" style="font-size:12px; color:var(--text3); margin-left:4px;"></span>
       </div>
 
       <!-- ABA: OS -->
@@ -645,7 +648,11 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
           <button class="btn btn-ghost btn-filter"   onclick="limparFiltrosTimeline()">↺ Limpar</button>
         </div>
         <div id="hist-timeline-result">
-          <div class="hist-empty">🔎 Informe o ID da OS ou Item e clique em Filtrar para ver a linha do tempo.</div>
+          <div class="hist-empty">
+            ⏱ <strong>Linha do Tempo</strong><br>
+            Mostra todos os eventos registrados de uma OS ou item específico.<br>
+            <span style="font-size:12px;opacity:.7">Informe o ID da OS (ex: <code style="background:var(--border);padding:1px 5px;border-radius:4px">OS-2026-001</code>) ou o ID do Item (ex: <code style="background:var(--border);padding:1px 5px;border-radius:4px">ACE-2026-001</code>) e clique em <strong>Filtrar</strong>.</span>
+          </div>
         </div>
       </div>
     </div>
@@ -1332,7 +1339,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyCT8QC_oRMyN8rPbtOkT5W8zQ2MIrHzivixvHGEneV3bp6q7ck-MLXni_ptQdgtCUwxA/exec'; // TODO: colar URL do GAS aqui
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzwgxxQBO_1JFrHkVGRqYtwHu9tNVvUoAqAD5fwBOyZpWmaZ1MotH87gu5QgHU3z1za/exec'; // TODO: colar URL do GAS aqui
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -1455,6 +1462,33 @@ async function gasPost(action, data={}) {
   return r.json();
 }
 
+// Mapeia item do GAS (formato planilha) para o formato interno do DB.catalogo
+function _mapCatItems(arr, tipoDefault) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(function(item) {
+    var badges = [];
+    if (item.fluido)        badges.push(item.fluido);
+    if (item.caixa_mm)      badges.push(item.caixa_mm + 'mm');
+    if (item.rosca)         badges.push(item.rosca);
+    if (item.tipo_rosca)    badges.push(item.tipo_rosca);
+    if (item.escala_padrao) badges.push(item.escala_padrao);
+    if (item.marca)         badges.push(item.marca);
+    if (item.bitola)        badges.push(item.bitola);
+    if (item.bitola_ent)    badges.push(item.bitola_ent);
+    return {
+      id:     item.id,
+      nome:   item.desc_curta || item.nome || item.id,
+      detalhe: item.desc_curta || '',
+      marca:  item.marca || '—',
+      ativo:  String(item.ativo) === 'true',
+      badges: badges.filter(Boolean),
+      calib:  String(item.requer_calibracao) === 'true',
+      tipo:   tipoDefault,
+      _raw:   item
+    };
+  });
+}
+
 async function syncGAS() {
   if (!GAS_URL) {
     showToast('⚠ URL do GAS não configurada — operando em modo local', 'warn');
@@ -1462,14 +1496,36 @@ async function syncGAS() {
   }
   setGASStatus('spin', 'Sincronizando…');
   try {
-    const [clis, oss, equips] = await Promise.all([
+    const [clis, oss, equips, cats, kitsResp] = await Promise.all([
       gasGet('getClientes'),
       gasGet('getOS'),
-      gasGet('getEquipamentosByCliente', {}),
+      gasGet('getEquipamentosAll'),
+      gasGet('getCatalogos'),
+      gasGet('getKitsByBitola', { bitola: 'todos' }),
     ]);
-    if (clis.status === 'ok') DB.clientes = clis.clientes;
-    if (oss.status === 'ok')  DB.os = oss.os;
+    if (clis.status === 'ok')   DB.clientes     = clis.clientes;
+    if (oss.status === 'ok')    DB.os           = oss.os;
     if (equips.status === 'ok') DB.equipamentos = equips.equipamentos || DB.equipamentos;
+    if (cats.status === 'ok') {
+      DB.catalogo.manometro = _mapCatItems(cats.manometros, 'Manômetro');
+      DB.catalogo.valvula   = _mapCatItems(cats.valvulas,   'Válvula de Segurança');
+      DB.catalogo.purgador  = _mapCatItems(cats.purgadores, 'Purgador');
+      DB.catalogo.dcbi      = _mapCatItems(cats.dcbi,       'DCBI');
+      DB.catalogo.conexao   = _mapCatItems(cats.conexoes,   'Conexão');
+    }
+    if (kitsResp.status === 'ok' && kitsResp.kits) {
+      DB.kits = kitsResp.kits.map(k => ({
+        id: k.id,
+        nome: k.nome,
+        bitola: k.bitola,
+        tipo_kit: k.tipo_kit,
+        componentes: Array.isArray(k.componentes)
+          ? k.componentes.map(c => (c.descricao || c) + (c.qtd > 1 ? ' (x' + c.qtd + ')' : ''))
+          : [],
+        inclui_rs: String(k.inclui_rs) === 'true',
+        ativo: String(k.ativo) === 'true'
+      }));
+    }
     setGASStatus('ok', 'GAS conectado ✓');
     await syncLevantamentos();
     await syncItens();
@@ -3234,6 +3290,20 @@ async function syncItens() {
     let allItens = [];
     results.forEach(r => { if (r.status === 'ok') allItens = allItens.concat(r.itens || []); });
     if (allItens.length) DB.itens = allItens;
+    // Enriquece campo 'cliente' a partir de DB.os + DB.clientes (já carregados antes)
+    DB.itens.forEach(function(item) {
+      if (!item.cliente || item.cliente === 'undefined') {
+        const os = DB.os.find(o => o.id_os === item.id_os);
+        if (os && os.cliente) {
+          item.cliente = os.cliente;
+        } else if (os && os.id_cliente) {
+          const cli = DB.clientes.find(c => c.id_cliente === os.id_cliente);
+          item.cliente = cli ? cli.nome : (item.id_cliente || '—');
+        } else {
+          item.cliente = item.id_cliente || '—';
+        }
+      }
+    });
   } catch(e) {}
 }
 
@@ -3272,11 +3342,11 @@ function togOpt(el, group) {
 const VIEW_CONFIG = {
   dashboard:     { title: 'Dashboard',                   btnLabel: '🔄 Atualizar',        newFn: () => { renderDashboard(); showToast('Dashboard atualizado'); } },
   pipeline:      { title: 'Pipeline de Itens',           btnLabel: '🔄 Atualizar tela',   newFn: () => { renderPipeline(); showToast('Pipeline atualizado na tela'); } },
-  calibracao:    { title: 'Calibração e Lacre',          btnLabel: '🔄 Sincronizar',      newFn: () => syncGAS().then(renderCalibracao) },
+  calibracao:    { title: 'Calibração e Lacre',          btnLabel: '🔬 Atualizar Calibrações',  newFn: () => syncGAS().then(renderCalibracao) },
   clientes:      { title: 'Clientes',                    btnLabel: '+ Novo Cliente',     newFn: () => abrirModalCliente() },
   os:            { title: 'Ordens de Serviço',           btnLabel: '+ Nova OS',          newFn: () => abrirModalOS() },
   equipamentos:  { title: 'Equipamentos',                btnLabel: '+ Novo Equipamento', newFn: () => abrirModalEquip() },
-  levantamentos: { title: 'Levantamentos FieldTap',      btnLabel: '🔄 Sincronizar',      newFn: () => syncLevantamentos().then(renderLevantamentos) },
+  levantamentos: { title: 'Levantamentos FieldTap',      btnLabel: '📋 Buscar Levantamentos',   newFn: () => syncLevantamentos().then(renderLevantamentos) },
   catalogo:      { title: 'Catálogo de Peças',           btnLabel: '+ Novo Item',        newFn: () => abrirModalCatalogo() },
   kits:          { title: 'Kits de Instalação',          btnLabel: '+ Novo Kit',         newFn: () => abrirModalKit() },
   historico:     { title: 'Histórico / Banco de Dados',   btnLabel: '🔄 Atualizar',        newFn: () => buscarHistoricoOS() },
@@ -3487,8 +3557,15 @@ function setHistTab(tab, el) {
     document.getElementById('hist-pane-' + t).style.display = (t === tab) ? '' : 'none';
     document.getElementById('htab-' + t).classList.toggle('active', t === tab);
   });
-  if (tab === 'os'    && !HIST.os)       buscarHistoricoOS();
-  if (tab === 'itens' && !HIST.itens)    buscarHistoricoItens();
+  const bc = document.getElementById('hist-breadcrumb');
+  const hints = {
+    os:       '',
+    itens:    '← clique em "Histórico de OS" para voltar à listagem',
+    timeline: '← clique em "Histórico de OS" para voltar à listagem'
+  };
+  if (bc) bc.textContent = hints[tab] || '';
+  if (tab === 'os'    && !HIST.os)    buscarHistoricoOS();
+  if (tab === 'itens' && !HIST.itens) buscarHistoricoItens();
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -3713,13 +3790,21 @@ async function buscarTimeline() {
 function renderTimeline(eventos, os_, item_) {
   const div = document.getElementById('hist-timeline-result');
   if (!eventos.length) {
-    div.innerHTML = '<div class="hist-empty">Nenhum evento encontrado para os filtros informados.</div>';
+    const semFiltro = !os_ && !item_;
+    if (semFiltro) {
+      div.innerHTML = '<div class="hist-empty">⏱ <strong>Linha do Tempo</strong><br>Informe o ID da OS ou do Item acima e clique em Filtrar.</div>';
+    } else {
+      div.innerHTML = '<div class="hist-empty">Nenhum evento encontrado para os filtros informados.' +
+        (GAS_URL ? ' Verifique se há registros na planilha LOG_OPERACIONAL.' :
+                   ' A Linha do Tempo requer conexão com o GAS para exibir histórico completo.') +
+        '</div>';
+    }
     return;
   }
   // Ordena crescente (mais antigo primeiro)
   const sorted = [...eventos].sort((a,b) => String(a.timestamp).localeCompare(String(b.timestamp)));
   const titulo = os_ ? `OS: ${os_}` : (item_ ? `Item: ${item_}` : 'Eventos');
-  div.innerHTML = `<div style="margin-bottom:12px;font-size:13px;font-weight:700;color:rgba(255,255,255,.6)">${titulo} — ${sorted.length} evento(s)</div>` +
+  div.innerHTML = `<div style="margin-bottom:12px;font-size:13px;font-weight:700;color:var(--text2)">${titulo} — ${sorted.length} evento(s)</div>` +
     '<div class="timeline-list">' +
     sorted.map(ev => {
       const cls = tlDotClass(ev.tipo_evento);
@@ -3746,7 +3831,7 @@ function limparFiltrosTimeline() {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('hist-timeline-result').innerHTML =
-    '<div class="hist-empty">🔎 Informe o ID da OS ou Item e clique em Filtrar para ver a linha do tempo.</div>';
+    '<div class="hist-empty">⏱ <strong>Linha do Tempo</strong><br>Informe o ID da OS ou do Item acima e clique em Filtrar.</div>';
 }
 
 // ── Atalhos ──────────────────────────────────────────────────────
