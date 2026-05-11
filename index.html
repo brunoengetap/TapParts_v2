@@ -402,7 +402,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
     <div class="logo-badge">TAP</div>
     <div>
       <div class="logo-name">Parts</div>
-      <div class="logo-sub">Engetap · S6</div>
+      <div class="logo-sub">Engetap · S8</div>
     </div>
   </div>
 
@@ -977,6 +977,18 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
         <label>Descrição do Serviço</label>
         <textarea id="os-descricao" rows="3" placeholder="Inspeção NR-13, instalação de manômetros e válvulas de segurança..."></textarea>
       </div>
+      <div class="field">
+        <label>Técnicos Vinculados <span style="color:var(--text3);font-weight:400">(FieldTap só exibe para estes técnicos)</span></label>
+        <div id="os-tecnicos-wrap" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;min-height:36px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:6px 8px;">
+          <div style="color:var(--text3);font-size:12px;align-self:center" id="os-tecs-empty">Nenhum técnico vinculado — todos verão esta OS</div>
+        </div>
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+          <select id="os-tec-add-sel" style="flex:1;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
+            <option value="">— Adicionar técnico —</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="adicionarTecnicoOS()">+ Adicionar</button>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-os')">Cancelar</button>
@@ -1385,7 +1397,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz4pzeCR3_ww7F2GUUKmqVPjzeTDj49k0vaui41vQeEWFYwpuItIskzPRf7sKYwJ8DL/exec'; // TODO: colar URL do GAS aqui
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxGXse5zMb6J7sLyczwWkWf-N5PHcSw3Wp9LUiAzDD8qBgAaXy3omcPlsHsSNBUAYA/exec'; // TODO: colar URL do GAS aqui
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -1725,8 +1737,9 @@ function renderOS() {
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="editarOS('${o.id_os}')">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="confirmarExclusao('os','${o.id_os}','OS '+o.numero_os)">🗑</button>
-          ${(o.status === 'Fase 1' || o.status === 'ativa' || (o.fase_atual == 1 && o.status !== 'Encerrada' && o.status !== 'Fase 2')) ? `<button class="btn btn-primary btn-sm" onclick="abrirModalFase2('${o.id_os}')" title="Abrir Fase 2 — Retorno ao campo" style="font-size:11px;padding:3px 8px">🚗 Fase 2</button>` : ''}
-          ${(o.status === 'Fase 2' || o.fase_atual == 2) ? `<button class="btn btn-ghost btn-sm" onclick="encerrarOS('${o.id_os}')" title="Encerrar OS" style="font-size:11px;padding:3px 8px;border-color:var(--success);color:var(--success)">✅ Encerrar</button>` : ''}
+          ${(o.status !== 'Encerrada' && o.fase_atual != 'encerrada') ? `<button class="btn btn-primary btn-sm" onclick="abrirModalFase2('${o.id_os}')" title="Enviar itens prontos para o FieldTap (Fase 2)" style="font-size:11px;padding:3px 8px">🚗 Fase 2</button>` : ''}
+          ${(o.status === 'Fase 2' || o.fase_atual == 2) ? `<button class="btn btn-ghost btn-sm" onclick="retrocederFase1('${o.id_os}')" title="Retroceder para Fase 1" style="font-size:11px;padding:3px 8px">↩ Fase 1</button>` : ''}
+          ${(o.status !== 'Encerrada' && o.fase_atual != 'encerrada') ? `<button class="btn btn-ghost btn-sm" onclick="encerrarOS('${o.id_os}')" title="Encerrar OS" style="font-size:11px;padding:3px 8px;border-color:var(--ok);color:var(--ok)">✅ Encerrar</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -1743,6 +1756,23 @@ function abrirModalOS(id=null) {
   const sel = document.getElementById('os-cliente');
   sel.innerHTML = '<option value="">— Selecione um cliente —</option>' +
     DB.clientes.filter(c=>c.ativo).map(c=>`<option value="${c.id_cliente}" ${c.id_cliente===o.id_cliente?'selected':''}>${c.nome}</option>`).join('');
+  // Técnicos vinculados
+  _osTecsSelecionados = [];
+  if (o.tecnicos_vinculados && Array.isArray(o.tecnicos_vinculados)) {
+    o.tecnicos_vinculados.forEach(id_t => {
+      const tec = (DB.inspetores||[]).find(t => t.id === id_t);
+      if (tec) _osTecsSelecionados.push({ id: id_t, nome: tec.nome });
+      else _osTecsSelecionados.push({ id: id_t, nome: id_t });
+    });
+  }
+  // Popula select de técnicos
+  const tecSel = document.getElementById('os-tec-add-sel');
+  if (tecSel) {
+    tecSel.innerHTML = '<option value="">— Adicionar técnico —</option>' +
+      (DB.inspetores||[]).filter(t => String(t.ativo) === 'true').map(t =>
+        `<option value="${t.id}">${t.nome}</option>`).join('');
+  }
+  renderTecnicosOS();
   openModal('modal-os');
 }
 
@@ -1756,11 +1786,13 @@ async function salvarOS() {
   if (!descricao) { showToast('Descrição é obrigatória', 'err'); return; }
   const cli = DB.clientes.find(c => c.id_cliente === cliId);
   const id = document.getElementById('os-id').value;
+  const tecIds = _osTecsSelecionados.map(t => t.id);
   const obj = {
     id_cliente: cliId, cliente: cli.nome,
     numero_os: num, descricao,
     data_abertura: document.getElementById('os-data').value,
-    status: 'Fase 1', fase_atual: 1
+    status: 'Fase 1', fase_atual: 1,
+    tecnicos_vinculados: tecIds
   };
   // Só envia id_os se for edição de existente
   if (id) obj.id_os = id;
@@ -2948,6 +2980,20 @@ async function avancarStatus(itemId, novoStatus) {
 
   showToast('Status atualizado: ' + (STATUS_LABEL[novoStatus] || novoStatus) + ' ✓');
 
+  // Sprint 8: ao marcar pronto_campo, oferecer atalho direto para Fase 2
+  if (novoStatus === 'pronto_campo' && item.id_os) {
+    const os = DB.os?.find(o => o.id_os === item.id_os);
+    if (os && os.status !== 'Encerrada') {
+      const toastEl = document.getElementById('toast');
+      if (toastEl) {
+        toastEl.innerHTML = `✓ Pronto p/ Campo &nbsp;·&nbsp; <span onclick="abrirModalFase2('${item.id_os}')" style="cursor:pointer;text-decoration:underline;font-weight:700">Enviar Fase 2 agora →</span>`;
+        toastEl.className = 'show';
+        if (toastEl._timer) clearTimeout(toastEl._timer);
+        toastEl._timer = setTimeout(() => { toastEl.className = ''; toastEl.innerHTML = ''; }, 6000);
+      }
+    }
+  }
+
   if (typeof _drawerItemId !== 'undefined' && _drawerItemId === itemId) {
     openDrawer(itemId);
   }
@@ -3687,7 +3733,57 @@ async function confirmarFase2() {
   showToast('✅ Fase 2 aberta — FieldTap atualizado');
 }
 
-// Sprint 6: encerrarOS agora abre modal com opções de faturamento
+// Sprint 8: retroceder OS de Fase 2 para Fase 1
+async function retrocederFase1(idOS) {
+  if (!confirm('Retroceder esta OS para Fase 1? Os itens em campo (em_campo_f2) voltarão para pronto_campo.')) return;
+  if (GAS_URL) {
+    try {
+      const r = await gasPost('avancarFaseOS', { id_os: idOS, nova_fase: 1, observacao: 'Retrocedido para Fase 1 pelo ADM' });
+      if (r.status !== 'ok') { showToast('Erro ao retroceder: ' + (r.mensagem || ''), 'err'); return; }
+    } catch(e) { showToast('Falha na comunicação com GAS', 'err'); return; }
+  }
+  const idx = DB.os.findIndex(o => o.id_os === idOS);
+  if (idx >= 0) { DB.os[idx].status = 'Fase 1'; DB.os[idx].fase_atual = 1; }
+  // Itens em_campo_f2 → voltam para pronto_campo
+  if (DB.itens) DB.itens.filter(it => it.id_os === idOS && it.status === 'em_campo_f2').forEach(it => { it.status = 'pronto_campo'; });
+  renderOS(); renderPipeline(); updateBadges();
+  showToast('OS retrocedida para Fase 1');
+}
+
+// Sprint 8: gestão de técnicos no modal OS
+let _osTecsSelecionados = [];
+
+function adicionarTecnicoOS() {
+  const sel = document.getElementById('os-tec-add-sel');
+  const id = sel.value;
+  if (!id) return;
+  const tec = DB.inspetores?.find(t => t.id === id);
+  if (!tec) return;
+  if (_osTecsSelecionados.find(t => t.id === id)) { showToast('Técnico já adicionado', 'err'); return; }
+  _osTecsSelecionados.push({ id, nome: tec.nome });
+  renderTecnicosOS();
+  sel.value = '';
+}
+
+function removerTecnicoOS(id) {
+  _osTecsSelecionados = _osTecsSelecionados.filter(t => t.id !== id);
+  renderTecnicosOS();
+}
+
+function renderTecnicosOS() {
+  const wrap = document.getElementById('os-tecnicos-wrap');
+  const empty = document.getElementById('os-tecs-empty');
+  if (!_osTecsSelecionados.length) {
+    wrap.innerHTML = '<div style="color:var(--text3);font-size:12px;align-self:center" id="os-tecs-empty">Nenhum técnico vinculado — todos verão esta OS</div>';
+    return;
+  }
+  wrap.innerHTML = _osTecsSelecionados.map(t =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600">
+      👷 ${t.nome}
+      <button onclick="removerTecnicoOS('${t.id}')" style="background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 4px">×</button>
+    </span>`
+  ).join('');
+}
 function encerrarOS(idOS) {
   const os = DB.os.find(o => o.id_os === idOS);
   document.getElementById('enc-id-os').value = idOS;
