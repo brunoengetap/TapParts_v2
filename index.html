@@ -551,7 +551,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
         </div>
         <table>
           <thead><tr>
-            <th>TAG</th><th>Cliente</th><th>OS Vinculada</th><th>Tipo</th><th>PMTA</th><th>Localização</th><th>Ações</th>
+            <th>TAG</th><th>Cliente</th><th>OS Atual</th><th>Tipo</th><th>PMTA</th><th>Localização</th><th>Ações</th>
           </tr></thead>
           <tbody id="tbl-equip">
             <tr><td colspan="7"><div class="empty-state"><div class="ei">🔧</div>Nenhum equipamento cadastrado ainda</div></td></tr>
@@ -1416,7 +1416,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyjCwHvKEBwgOoqtTTKEkhgSI_pRcdmtm97jEkPFdRUQa84OczMeRoeb7MV1gTCCMXo/exec'; // TODO: colar URL do GAS aqui
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzEN9w-uxxa2YfrR7FvaAfx1YzmMbnTvgGaIt5kiQTHroUbRP1PODr0pRcKIrZZ2WQo/exec'; // TODO: colar URL do GAS aqui
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -1930,12 +1930,21 @@ async function vincularEquipamento() {
   if (!eqId) { showToast('Selecione um equipamento', 'err'); return; }
   const eq = DB.equipamentos.find(e => e.id_equipamento === eqId);
   if (!eq) return;
-  const old = eq.id_os;
+  // Correção S10 — vínculo ativo: salvar estado anterior para rollback
+  const old = eq.id_os || '';
   eq.id_os = _osEquipContext;
   if (GAS_URL) {
     try {
-      await gasPost('salvarEquipamento', { id_equipamento: eqId, id_cliente: eq.id_cliente, tipo: eq.tipo, tag: eq.tag, id_os: _osEquipContext });
-    } catch(e) {}
+      const r = await gasPost('salvarEquipamento', { id_equipamento: eqId, id_cliente: eq.id_cliente, tipo: eq.tipo, tag: eq.tag, id_os: _osEquipContext });
+      if (!r || r.status !== 'ok') throw new Error(r?.mensagem || r?.codigo || 'Falha GAS');
+      // Recarregar equipamentos do GAS para garantir consistência
+      await syncGAS(false);
+    } catch(e) {
+      // Rollback local se GAS falhou
+      eq.id_os = old;
+      showToast('Erro ao vincular equipamento: ' + e.message, 'err');
+      return;
+    }
   }
   renderOSEquipList(_osEquipContext);
   renderOS();
@@ -1946,11 +1955,20 @@ async function vincularEquipamento() {
 async function desvincularEquip(eqId, idOS) {
   const eq = DB.equipamentos.find(e => e.id_equipamento === eqId);
   if (!eq) return;
+  // Correção S10 — vínculo ativo: rollback se GAS falhar
+  const old = eq.id_os || '';
   eq.id_os = '';
   if (GAS_URL) {
     try {
-      await gasPost('salvarEquipamento', { id_equipamento: eqId, id_cliente: eq.id_cliente, tipo: eq.tipo, tag: eq.tag, id_os: '' });
-    } catch(e) {}
+      const r = await gasPost('salvarEquipamento', { id_equipamento: eqId, id_cliente: eq.id_cliente, tipo: eq.tipo, tag: eq.tag, id_os: '' });
+      if (!r || r.status !== 'ok') throw new Error(r?.mensagem || r?.codigo || 'Falha GAS');
+      await syncGAS(false);
+    } catch(e) {
+      // Rollback local se GAS falhou
+      eq.id_os = old;
+      showToast('Erro ao desvincular equipamento: ' + e.message, 'err');
+      return;
+    }
   }
   renderOSEquipList(idOS);
   renderOS();
@@ -2186,11 +2204,17 @@ function renderEquipamentos() {
   }
   tbody.innerHTML = data.map(e => {
     const nomeC = _nomeCliente(e);
+    // Correção S10 — OS Atual: mostrar numero_os da OS ativa vinculada, não id_os interno
+    const osAtual = (() => {
+      if (!e.id_os) return '—';
+      const os = DB.os.find(o => o.id_os === e.id_os);
+      return os ? `<code style="font-size:11px">OS ${os.numero_os || e.id_os}</code>` : `<code style="font-size:11px">${e.id_os}</code>`;
+    })();
     return `
     <tr>
       <td><strong style="font-family:var(--head);font-size:16px">${e.tag}</strong></td>
       <td>${nomeC}</td>
-      <td><code style="font-size:11px">${e.id_os || '—'}</code></td>
+      <td>${osAtual}</td>
       <td><span class="badge badge-blue">${e.tipo}</span></td>
       <td style="font-size:12px">${e.pmta ? e.pmta + ' kgf/cm²' : '—'}</td>
       <td style="font-size:12px;color:var(--text2)">${e.localizacao || '—'}</td>
