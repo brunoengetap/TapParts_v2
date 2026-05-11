@@ -196,6 +196,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--body); font
 .btn:hover { opacity: .85; }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-ghost { background: var(--surf2); color: var(--text2); border: 1px solid var(--border); }
+.btn:active, .btn.btn-pressing { transform: scale(0.94); opacity: 0.82; transition: transform 0.08s, opacity 0.08s; }
+.btn { transition: transform 0.12s, opacity 0.12s, background 0.15s; }
 .btn-ok { background: #dcfce7; color: var(--ok); border: 1px solid #bbf7d0; }
 .btn-warn { background: #fef3c7; color: var(--warn); border: 1px solid #fde68a; }
 .btn-danger { background: #fee2e2; color: var(--danger); border: 1px solid #fecaca; }
@@ -425,6 +427,9 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
   </div>
   <div class="nav-item" onclick="setView('equipamentos',this)" id="nav-equipamentos">
     <span class="ni-icon">🔧</span> Equipamentos
+  </div>
+  <div class="nav-item" onclick="setView('tecnicos',this)" id="nav-tecnicos">
+    <span class="ni-icon">👷</span> Técnicos de Campo
   </div>
   <div class="nav-item" onclick="setView('levantamentos',this)" id="nav-levantamentos">
     <span class="ni-icon">📥</span> Levantamentos FieldTap
@@ -737,6 +742,25 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
       </div>
     </div>
 
+    <!-- ══ VIEW: TÉCNICOS DE CAMPO ══ -->
+    <div class="view" id="view-tecnicos">
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <input type="text" id="tec-search" placeholder="Buscar por nome ou ID..." oninput="renderTecnicos()">
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="toggleTecnicosInativos()" style="margin-left:auto">👁 <span id="lblTecInat">Mostrar inativos</span></button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span id="cnt-tecnicos" style="color:var(--text2);font-size:13px">0 técnicos</span>
+      </div>
+      <table class="data-table">
+        <thead><tr>
+          <th>ID</th><th>Nome</th><th>PIN</th><th>Status</th><th>Ações</th>
+        </tr></thead>
+        <tbody id="tbl-tecnicos"></tbody>
+      </table>
+    </div>
+
     <!-- ══ VIEW: DASHBOARD ══ -->
     <div class="view active" id="view-dashboard">
       <div class="dash-grid" id="dash-kpis"></div>
@@ -864,6 +888,28 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 </div><!-- /main -->
 
 <!-- ══ MODAL: NOVO/EDITAR CLIENTE ══ -->
+<!-- ══ MODAL: TÉCNICO DE CAMPO ══ -->
+<div class="modal-overlay" id="modal-tecnico">
+  <div class="modal">
+    <div class="modal-head">
+      <span id="tec-modal-title">👷 Novo Técnico de Campo</span>
+      <button class="modal-close" onclick="closeModal('modal-tecnico')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="tec-id">
+      <label class="field-label">Nome completo *</label>
+      <input type="text" id="tec-nome" placeholder="Ex.: João Silva">
+      <label class="field-label" id="tec-pin-label">PIN de acesso (4–6 dígitos) *</label>
+      <input type="text" id="tec-pin" placeholder="Ex.: 1234" maxlength="6" pattern="[0-9]*" inputmode="numeric">
+      <p id="tec-pin-hint" style="font-size:11px;color:var(--text3);margin-top:2px">Deixe em branco para manter o PIN atual ao editar.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tecnico')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarTecnico()">💾 Salvar Técnico</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-cliente">
   <div class="modal">
     <div class="modal-head">
@@ -1339,7 +1385,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzwgxxQBO_1JFrHkVGRqYtwHu9tNVvUoAqAD5fwBOyZpWmaZ1MotH87gu5QgHU3z1za/exec'; // TODO: colar URL do GAS aqui
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz4pzeCR3_ww7F2GUUKmqVPjzeTDj49k0vaui41vQeEWFYwpuItIskzPRf7sKYwJ8DL/exec'; // TODO: colar URL do GAS aqui
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -1350,6 +1396,10 @@ let DB = {
   equipamentos: [],
   levantamentos: [],
   itens: [],
+  inspetores: [
+    { id: 'INS-001', nome: 'João Silva',     ativo: 'true' },
+    { id: 'INS-002', nome: 'Maria Oliveira', ativo: 'true' },
+  ],
   catalogo: {
     manometro: [],
     valvula: [],
@@ -1489,23 +1539,33 @@ function _mapCatItems(arr, tipoDefault) {
   });
 }
 
+function _btnPress(selector) {
+  const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+  if (!el) return;
+  el.classList.add('btn-pressing');
+  setTimeout(() => el.classList.remove('btn-pressing'), 200);
+}
+
 async function syncGAS() {
+  _btnPress('[onclick="syncGAS()"]');
   if (!GAS_URL) {
     showToast('⚠ URL do GAS não configurada — operando em modo local', 'warn');
     return;
   }
   setGASStatus('spin', 'Sincronizando…');
   try {
-    const [clis, oss, equips, cats, kitsResp] = await Promise.all([
+    const [clis, oss, equips, cats, kitsResp, insp] = await Promise.all([
       gasGet('getClientes'),
       gasGet('getOS'),
       gasGet('getEquipamentosAll'),
       gasGet('getCatalogos'),
       gasGet('getKitsByBitola', { bitola: 'todos' }),
+      gasGet('getInspetores'),
     ]);
     if (clis.status === 'ok')   DB.clientes     = clis.clientes;
     if (oss.status === 'ok')    DB.os           = oss.os;
     if (equips.status === 'ok') DB.equipamentos = equips.equipamentos || DB.equipamentos;
+    if (insp.status === 'ok')   DB.inspetores   = insp.inspetores || [];
     if (cats.status === 'ok') {
       DB.catalogo.manometro = _mapCatItems(cats.manometros, 'Manômetro');
       DB.catalogo.valvula   = _mapCatItems(cats.valvulas,   'Válvula de Segurança');
@@ -1665,8 +1725,8 @@ function renderOS() {
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="editarOS('${o.id_os}')">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="confirmarExclusao('os','${o.id_os}','OS '+o.numero_os)">🗑</button>
-          ${o.status === 'Fase 1' ? `<button class="btn btn-primary btn-sm" onclick="abrirModalFase2('${o.id_os}')" title="Abrir Fase 2 — Retorno ao campo" style="font-size:11px;padding:3px 8px">🚗 Fase 2</button>` : ''}
-          ${o.status === 'Fase 2' ? `<button class="btn btn-ghost btn-sm" onclick="encerrarOS('${o.id_os}')" title="Encerrar OS" style="font-size:11px;padding:3px 8px;border-color:var(--success);color:var(--success)">✅ Encerrar</button>` : ''}
+          ${(o.status === 'Fase 1' || o.status === 'ativa' || (o.fase_atual == 1 && o.status !== 'Encerrada' && o.status !== 'Fase 2')) ? `<button class="btn btn-primary btn-sm" onclick="abrirModalFase2('${o.id_os}')" title="Abrir Fase 2 — Retorno ao campo" style="font-size:11px;padding:3px 8px">🚗 Fase 2</button>` : ''}
+          ${(o.status === 'Fase 2' || o.fase_atual == 2) ? `<button class="btn btn-ghost btn-sm" onclick="encerrarOS('${o.id_os}')" title="Encerrar OS" style="font-size:11px;padding:3px 8px;border-color:var(--success);color:var(--success)">✅ Encerrar</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -2098,6 +2158,130 @@ function filterEquipTipo(v) {
 function filterEquipCliente(v) {
   DB.equipamentos._cliFilter = v;
   renderEquipamentos();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TÉCNICOS DE CAMPO
+// ═══════════════════════════════════════════════════════════════
+let _tecMostrarInativos = false;
+
+function toggleTecnicosInativos() {
+  _tecMostrarInativos = !_tecMostrarInativos;
+  document.getElementById('lblTecInat').textContent = _tecMostrarInativos ? 'Ocultar inativos' : 'Mostrar inativos';
+  renderTecnicos();
+}
+
+function renderTecnicos() {
+  const tbody = document.getElementById('tbl-tecnicos');
+  if (!tbody) return;
+  const q = (document.getElementById('tec-search')?.value || '').toLowerCase();
+  let data = (DB.inspetores || []).filter(t => {
+    if (!_tecMostrarInativos && String(t.ativo).toLowerCase() !== 'true') return false;
+    if (q && !t.nome?.toLowerCase().includes(q) && !t.id?.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  document.getElementById('cnt-tecnicos').textContent = data.length + ' técnico' + (data.length !== 1 ? 's' : '');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="ei">👷</div>Nenhum técnico encontrado</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(t => {
+    const ativo = String(t.ativo).toLowerCase() === 'true';
+    return `<tr>
+      <td><code>${t.id}</code></td>
+      <td><strong>${t.nome}</strong></td>
+      <td style="color:var(--text3);font-size:12px">••••</td>
+      <td><span class="pill ${ativo ? 'pill-atv' : 'pill-ina'}">${ativo ? '● Ativo' : '○ Inativo'}</span></td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm" onclick="editarTecnico('${t.id}')">✏️ Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleAtivoTecnico('${t.id}','${!ativo}')"
+            style="color:${ativo ? 'var(--danger)' : 'var(--ok)'}">
+            ${ativo ? '🚫 Desativar' : '✅ Ativar'}
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalTecnico(id) {
+  document.getElementById('tec-id').value = '';
+  document.getElementById('tec-nome').value = '';
+  document.getElementById('tec-pin').value = '';
+  document.getElementById('tec-modal-title').textContent = '👷 Novo Técnico de Campo';
+  document.getElementById('tec-pin-label').textContent = 'PIN de acesso (4–6 dígitos) *';
+  document.getElementById('tec-pin-hint').style.display = 'none';
+  openModal('modal-tecnico');
+}
+
+function editarTecnico(id) {
+  const t = (DB.inspetores || []).find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('tec-id').value = t.id;
+  document.getElementById('tec-nome').value = t.nome || '';
+  document.getElementById('tec-pin').value = '';
+  document.getElementById('tec-modal-title').textContent = '✏️ Editar Técnico — ' + t.nome;
+  document.getElementById('tec-pin-label').textContent = 'Novo PIN (deixe em branco para manter o atual)';
+  document.getElementById('tec-pin-hint').style.display = 'block';
+  openModal('modal-tecnico');
+}
+
+async function salvarTecnico() {
+  const id   = document.getElementById('tec-id').value.trim();
+  const nome = document.getElementById('tec-nome').value.trim();
+  const pin  = document.getElementById('tec-pin').value.trim();
+  if (!nome) { showToast('Informe o nome do técnico.', 'err'); return; }
+  if (!id && !pin) { showToast('Informe o PIN para o novo técnico.', 'err'); return; }
+  if (pin && (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin))) {
+    showToast('PIN deve ter 4 a 6 dígitos numéricos.', 'err'); return;
+  }
+  const body = { nome };
+  if (id)  body.id  = id;
+  if (pin) body.pin = pin;
+
+  if (GAS_URL) {
+    try {
+      const r = await gasPost('salvarInspetor', body);
+      if (r.status !== 'ok') { showToast('Erro: ' + (r.mensagem || ''), 'err'); return; }
+      // Atualiza DB local
+      if (id) {
+        const idx = DB.inspetores.findIndex(x => x.id === id);
+        if (idx >= 0) DB.inspetores[idx].nome = nome;
+      } else {
+        DB.inspetores.push({ id: r.id, nome, ativo: 'true' });
+      }
+    } catch(e) {
+      showToast('Falha na comunicação com GAS', 'err'); return;
+    }
+  } else {
+    // Modo local
+    if (id) {
+      const idx = DB.inspetores.findIndex(x => x.id === id);
+      if (idx >= 0) DB.inspetores[idx].nome = nome;
+    } else {
+      const newId = 'INS-' + String(DB.inspetores.length + 1).padStart(3, '0');
+      DB.inspetores.push({ id: newId, nome, ativo: 'true' });
+    }
+  }
+  closeModal('modal-tecnico');
+  renderTecnicos();
+  showToast(id ? 'Técnico atualizado ✓' : 'Técnico cadastrado ✓');
+}
+
+async function toggleAtivoTecnico(id, novoAtivo) {
+  if (GAS_URL) {
+    try {
+      const r = await gasPost('toggleAtivoInspetor', { id, ativo: novoAtivo });
+      if (r.status !== 'ok') { showToast('Erro: ' + (r.mensagem || ''), 'err'); return; }
+    } catch(e) {
+      showToast('Falha na comunicação com GAS', 'err'); return;
+    }
+  }
+  const idx = (DB.inspetores || []).findIndex(x => x.id === id);
+  if (idx >= 0) DB.inspetores[idx].ativo = novoAtivo;
+  renderTecnicos();
+  showToast(novoAtivo === 'true' ? 'Técnico ativado ✓' : 'Técnico desativado');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2629,7 +2813,8 @@ function renderDashboard() {
   document.getElementById('dash-os-list').innerHTML = osAtArr.length
     ? osAtArr.map(o => {
         const oItens = itens.filter(i => i.id_os === o.id_os);
-        const pct = oItens.length ? Math.round(oItens.filter(i=>i.status==='concluido').length / oItens.length * 100) : 0;
+        const STATI_CONCLUIDOS = ['instalado','instalado_campo','entregue','calibrado','concluido','em_campo_f2'];
+        const pct = oItens.length ? Math.round(oItens.filter(i=>STATI_CONCLUIDOS.includes(i.status)).length / oItens.length * 100) : 0;
         return `<div class="dash-item">
           <div>
             <div class="dash-item-label">OS ${o.numero_os} — ${o.cliente}</div>
@@ -2685,7 +2870,8 @@ function renderPipeline() {
     const os = DB.os.find(o => o.id_os === i.id_os);
     const pipeline = i.instalado_imediatamente ? PIPELINE_CURTO : PIPELINE_NORMAL;
     const idx = pipeline.indexOf(i.status);
-    const pct = idx >= 0 ? Math.round((idx / (pipeline.length - 1)) * 100) : 0;
+    // Garante pelo menos 4% para qualquer item no pipeline, e distribui o restante
+    const pct = idx < 0 ? 0 : pipeline.length <= 1 ? 100 : Math.round(4 + (idx / (pipeline.length - 1)) * 96);
     const nextOpts = (NEXT_STATUS[i.status] || []);
     const calib = i.requer_calibracao;
 
@@ -3346,6 +3532,7 @@ const VIEW_CONFIG = {
   clientes:      { title: 'Clientes',                    btnLabel: '+ Novo Cliente',     newFn: () => abrirModalCliente() },
   os:            { title: 'Ordens de Serviço',           btnLabel: '+ Nova OS',          newFn: () => abrirModalOS() },
   equipamentos:  { title: 'Equipamentos',                btnLabel: '+ Novo Equipamento', newFn: () => abrirModalEquip() },
+  tecnicos:      { title: 'Técnicos de Campo',           btnLabel: '+ Novo Técnico',     newFn: () => abrirModalTecnico() },
   levantamentos: { title: 'Levantamentos FieldTap',      btnLabel: '📋 Buscar Levantamentos',   newFn: () => syncLevantamentos().then(renderLevantamentos) },
   catalogo:      { title: 'Catálogo de Peças',           btnLabel: '+ Novo Item',        newFn: () => abrirModalCatalogo() },
   kits:          { title: 'Kits de Instalação',          btnLabel: '+ Novo Kit',         newFn: () => abrirModalKit() },
@@ -3370,6 +3557,7 @@ function setView(id, el) {
 }
 
 function topNew() {
+  _btnPress('#btnTopNew');
   const active = document.querySelector('.view.active');
   const id = active?.id?.replace('view-', '');
   VIEW_CONFIG[id]?.newFn();
@@ -3395,6 +3583,7 @@ function renderAll() {
   renderClientes();
   renderOS();
   renderEquipamentos();
+  renderTecnicos();
   populateClienteSelects();
   renderDashboard();
   populatePipeOSFilter();
