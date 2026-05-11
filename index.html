@@ -1416,7 +1416,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzR6CPX2JAqxyVywgg9uSoJyZc6kENfK7csXsamnYYf1eN0tJ6my5aAZyUhemO2TqVl/exec'; // TODO: colar URL do GAS aqui
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyjCwHvKEBwgOoqtTTKEkhgSI_pRcdmtm97jEkPFdRUQa84OczMeRoeb7MV1gTCCMXo/exec'; // TODO: colar URL do GAS aqui
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -1594,7 +1594,16 @@ async function syncGAS() {
       gasGet('getInspetores'),
     ]);
     if (clis.status === 'ok')   DB.clientes     = clis.clientes;
-    if (oss.status === 'ok')    DB.os           = oss.os;
+    if (oss.status === 'ok' && Array.isArray(oss.os)) {
+      if (oss.os.length === 0 && (DB.itens?.length || DB.levantamentos?.length)) {
+        console.warn('[SYNC] getOS retornou lista vazia, mas DB.itens/levantamentos têm registros. Possível divergência no GAS.');
+      }
+      DB.os = oss.os;
+    } else if (oss.status === 'ok') {
+      console.warn('[SYNC] getOS retornou status ok mas oss.os não é array:', oss.os);
+    }
+    console.log('[SYNC] OS recebidas do GAS:', DB.os.length);
+    console.log('[SYNC] OS em andamento:', DB.os.filter(isOSEmAndamento).length);
     if (equips.status === 'ok') {
       DB.equipamentos = equips.equipamentos || DB.equipamentos;
       // Enriquece campo cliente nos equipamentos
@@ -1746,7 +1755,7 @@ function renderOS() {
   let data = DB.os.filter(o => {
     if (q && !o.numero_os?.includes(q) && !o.cliente?.toLowerCase().includes(q) && !o.descricao?.toLowerCase().includes(q)) return false;
     if (_osStatusFilter === 'ativas') {
-      if (o.status === 'Encerrada' || o.fase_atual === 'encerrada') return false;
+      if (isOSEncerrada(o)) return false;
     } else if (_osStatusFilter && _osStatusFilter !== 'todas') {
       if (o.status !== _osStatusFilter) return false;
     }
@@ -1782,16 +1791,16 @@ function renderOS() {
         <span class="phase-badge ${phaseClass[o.status]||'phase-1'}">${o.status}</span>
         ${isCampoConcluida ? '<div style="font-size:10px;color:var(--ok);font-weight:700;margin-top:2px">✅ Campo finalizado</div>' : ''}
       </td>
-      <td><span class="pill ${(o.status==='Encerrada'||o.fase_atual==='encerrada')?'pill-enc':'pill-f1'}">${(o.status==='Encerrada'||o.fase_atual==='encerrada')?'✓ Encerrada':'🔄 Em andamento'}</span></td>
+      <td><span class="pill ${isOSEncerrada(o)?'pill-enc':'pill-f1'}">${isOSEncerrada(o)?'✓ Encerrada':'🔄 Em andamento'}</span></td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="editarOS('${o.id_os}')">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="confirmarExclusao('os','${o.id_os}','OS '+o.numero_os)">🗑</button>
-          ${(o.status !== 'Encerrada' && o.fase_atual != 'encerrada') ? `<button class="btn btn-primary btn-sm" onclick="abrirModalFase2('${o.id_os}')" title="Enviar itens prontos para o FieldTap (Fase 2)" style="font-size:11px;padding:3px 8px">🚗 Fase 2</button>` : ''}
-          ${(o.status === 'Fase 2' || o.fase_atual == 2) ? `<button class="btn btn-ghost btn-sm" onclick="retrocederFase1('${o.id_os}')" title="Retroceder para Fase 1" style="font-size:11px;padding:3px 8px">↩ Fase 1</button>` : ''}
+          ${!isOSEncerrada(o) ? `<button class="btn btn-primary btn-sm" onclick="abrirModalFase2('${o.id_os}')" title="Enviar itens prontos para o FieldTap (Fase 2)" style="font-size:11px;padding:3px 8px">🚗 Fase 2</button>` : ''}
+          ${isOSFase2(o) ? `<button class="btn btn-ghost btn-sm" onclick="retrocederFase1('${o.id_os}')" title="Retroceder para Fase 1" style="font-size:11px;padding:3px 8px">↩ Fase 1</button>` : ''}
           ${isCampoConcluida ? `<button class="btn btn-ok btn-sm" onclick="encerrarOS('${o.id_os}')" style="font-size:11px;padding:3px 8px">✅ Encerrar OS</button>` : ''}
-          ${(o.status !== 'Encerrada' && o.fase_atual != 'encerrada' && !isCampoConcluida) ? `<button class="btn btn-ghost btn-sm" onclick="encerrarOS('${o.id_os}')" title="Encerrar OS" style="font-size:11px;padding:3px 8px;border-color:var(--ok);color:var(--ok)">✅ Encerrar</button>` : ''}
-          ${(o.status === 'Encerrada' || o.fase_atual === 'encerrada') ? `<button class="btn btn-ghost btn-sm" onclick="reabrirOS('${o.id_os}')" title="Reabrir OS" style="font-size:11px;padding:3px 8px;border-color:var(--warn);color:var(--warn)">↩ Reabrir</button>` : ''}
+          ${(!isOSEncerrada(o) && !isCampoConcluida) ? `<button class="btn btn-ghost btn-sm" onclick="encerrarOS('${o.id_os}')" title="Encerrar OS" style="font-size:11px;padding:3px 8px;border-color:var(--ok);color:var(--ok)">✅ Encerrar</button>` : ''}
+          ${isOSEncerrada(o) ? `<button class="btn btn-ghost btn-sm" onclick="reabrirOS('${o.id_os}')" title="Reabrir OS" style="font-size:11px;padding:3px 8px;border-color:var(--warn);color:var(--warn)">↩ Reabrir</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -2839,6 +2848,41 @@ const NEXT_STATUS = {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// NORMALIZAÇÃO DE STATUS/FASE DAS OS
+// ═══════════════════════════════════════════════════════════════
+function normalizeFaseOS(os) {
+  var f = String(os.fase_atual || '').trim().toLowerCase();
+  var s = String(os.status || '').trim().toLowerCase();
+  if (f === '2' || s === 'fase 2' || s === 'fase 2 campo concluída' || f === 'campo_concluido') return '2';
+  if (f === 'encerrada' || f === 'encerrado') return 'encerrada';
+  return '1'; // fallback seguro: Fase 1
+}
+function normalizeStatusOS(os) {
+  return String(os.status || '').trim();
+}
+function isOSEncerrada(os) {
+  var s = String(os.status || '').trim().toLowerCase();
+  var f = String(os.fase_atual || '').trim().toLowerCase();
+  return s === 'encerrada' || s === 'encerrado' || s === 'finalizada' || s === 'finalizado' || f === 'encerrada';
+}
+function isOSEmAndamento(os) {
+  return !isOSEncerrada(os) && !!os.id_os;
+}
+function isOSFase1(os) {
+  var f = String(os.fase_atual || '').trim().toLowerCase();
+  var s = String(os.status || '').trim().toLowerCase();
+  if (isOSEncerrada(os)) return false;
+  if (f === '2' || s === 'fase 2' || s === 'fase 2 campo concluída' || f === 'campo_concluido') return false;
+  return true; // ativa, Fase 1, string "1", ou fase_atual vazio → Fase 1
+}
+function isOSFase2(os) {
+  if (isOSEncerrada(os)) return false;
+  var f = String(os.fase_atual || '').trim().toLowerCase();
+  var s = String(os.status || '').trim().toLowerCase();
+  return f === '2' || s === 'fase 2' || s === 'fase 2 campo concluída' || f === 'campo_concluido';
+}
+
+// ═══════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 function renderDashboard() {
@@ -2850,7 +2894,11 @@ function renderDashboard() {
   const prontos = countStatus('pronto_campo');
   const calibPend = itens.filter(i => String(i.requer_calibracao) === 'true' && !i.data_calibracao && ['instalado_campo','pronto_campo','pecas_recebidas','em_calibracao'].includes(i.status)).length;
   const calibVenc = itens.filter(i => String(i.requer_calibracao) === 'true' && i.validade_calibracao && new Date(i.validade_calibracao) <= new Date()).length;
-  const osAtivas = DB.os.filter(o => o.status !== 'Encerrada').length;
+  // Diagnóstico de divergência
+  if ((!DB.os || DB.os.length === 0) && DB.itens && DB.itens.length > 0) {
+    console.warn('[SYNC] DB.itens possui itens, mas DB.os está vazio. Verificar getOS/syncGAS.');
+  }
+  const osAtivas = DB.os.filter(isOSEmAndamento).length;
 
   document.getElementById('dash-kpis').innerHTML = `
     <div class="dash-card warn">
@@ -2921,7 +2969,7 @@ function renderDashboard() {
     : '<div style="color:var(--text2);font-size:13px;padding:10px 0">Nenhum item pronto para campo ainda</div>';
 
   // OS ativas
-  const osAtArr = DB.os.filter(o => o.status !== 'Encerrada');
+  const osAtArr = DB.os.filter(isOSEmAndamento);
   document.getElementById('dash-os-list').innerHTML = osAtArr.length
     ? osAtArr.map(o => {
         const oItens = itens.filter(i => i.id_os === o.id_os);
@@ -3068,7 +3116,7 @@ async function avancarStatus(itemId, novoStatus) {
   // Sprint 8: ao marcar pronto_campo, oferecer atalho direto para Fase 2
   if (novoStatus === 'pronto_campo' && item.id_os) {
     const os = DB.os?.find(o => o.id_os === item.id_os);
-    if (os && os.status !== 'Encerrada') {
+    if (os && !isOSEncerrada(os)) {
       const toastEl = document.getElementById('toast');
       if (toastEl) {
         toastEl.innerHTML = `✓ Pronto p/ Campo &nbsp;·&nbsp; <span onclick="abrirModalFase2('${item.id_os}')" style="cursor:pointer;text-decoration:underline;font-weight:700">Enviar Fase 2 agora →</span>`;
@@ -3834,15 +3882,38 @@ async function confirmarFase2() {
     if (tecnicoF2) DB.os[idx].tecnicos_vinculados = [tecnicoF2];
   }
 
-  // 3. Itens pronto_campo → status "em_campo_f2" para acompanhamento
+  // 3. Itens pronto_campo → persistir status "em_campo_f2" no GAS e atualizar DB local
   if (DB.itens) {
     const prontos = DB.itens.filter(it => it.id_os === idOS && it.status === 'pronto_campo');
-    prontos.forEach(it => { it.status = 'em_campo_f2'; });
+    const falhas = [];
+    if (GAS_URL && prontos.length) {
+      await Promise.all(prontos.map(async it => {
+        try {
+          const ri = await gasPost('atualizarStatusItem', {
+            id_item: it.id_item,
+            novo_status: 'em_campo_f2',
+            responsavel: 'TapParts',
+            observacao: 'Enviado ao FieldTap na abertura da Fase 2'
+          });
+          if (ri.status !== 'ok') falhas.push(it.id_item);
+          else it.status = 'em_campo_f2';
+        } catch(e) {
+          falhas.push(it.id_item);
+          console.warn('[FASE2] Falha ao atualizar item no GAS:', it.id_item, e.message);
+        }
+      }));
+      if (falhas.length) showToast('⚠ ' + falhas.length + ' item(ns) não puderam ser atualizados no GAS', 'warn');
+    } else {
+      // Sem GAS: atualiza só local
+      prontos.forEach(it => { it.status = 'em_campo_f2'; });
+    }
   }
 
   closeModal('modal-fase2');
   renderOS();
+  renderDashboard();
   if (DB.itens) renderPipeline();
+  updateBadges();
   showToast('✅ Fase 2 aberta — FieldTap atualizado' + (tecnicoF2 ? ' para técnico selecionado' : ''));
 }
 
@@ -3859,7 +3930,7 @@ async function retrocederFase1(idOS) {
   if (idx >= 0) { DB.os[idx].status = 'Fase 1'; DB.os[idx].fase_atual = 1; }
   // Itens em_campo_f2 → voltam para pronto_campo
   if (DB.itens) DB.itens.filter(it => it.id_os === idOS && it.status === 'em_campo_f2').forEach(it => { it.status = 'pronto_campo'; });
-  renderOS(); renderPipeline(); updateBadges();
+  renderOS(); renderDashboard(); renderPipeline(); updateBadges();
   showToast('OS retrocedida para Fase 1');
 }
 
