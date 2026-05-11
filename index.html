@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TapParts S4 — Engetap</title>
+<title>TapParts S12 — Engetap</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -402,7 +402,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
     <div class="logo-badge">TAP</div>
     <div>
       <div class="logo-name">Parts</div>
-      <div class="logo-sub">Engetap · S8</div>
+      <div class="logo-sub">Engetap · S12</div>
     </div>
   </div>
 
@@ -454,7 +454,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
       <div class="gas-dot spin" id="gasDot"></div>
       <span id="gasLabel">Conectando ao GAS…</span>
     </div>
-    <div style="margin-top:6px;font-size:10px;opacity:.5">TapParts · Sprint 6</div>
+    <div style="margin-top:6px;font-size:10px;opacity:.5">TapParts · S12</div>
   </div>
 </div>
 
@@ -837,7 +837,8 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
           <thead>
             <tr>
               <th>Item / Descrição</th>
-              <th>OS · Cliente</th>
+              <th>OS</th>
+              <th>Cliente</th>
               <th>TAG Equip.</th>
               <th>Qtd</th>
               <th>Status</th>
@@ -1416,7 +1417,9 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzEN9w-uxxa2YfrR7FvaAfx1YzmMbnTvgGaIt5kiQTHroUbRP1PODr0pRcKIrZZ2WQo/exec'; // TODO: colar URL do GAS aqui
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzUFHKIWPWC9EnrQyk-5GaWJ6BgeFdIQ5FLeFo4UAfKP4Qx86b2jM52yWgG-XpIz86Y/exec'; // TODO: colar URL do GAS aqui
+// Correção S12 — versionamento
+const APP_VERSION = 'S12';
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -1526,21 +1529,62 @@ async function gasGet(action, params={}) {
   if (!GAS_URL) throw new Error('GAS não configurado');
   const url = new URL(GAS_URL);
   url.searchParams.set('action', action);
+  // Correção S12 — cache-buster obrigatório em todas as chamadas GET
+  url.searchParams.set('_ts', Date.now());
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
-  const r = await fetch(url, { redirect: 'follow' });
-  return r.json();
+  // Correção S12 — timeout 18s; cache:no-store para evitar resposta velha do browser
+  const mkFetch = () => Promise.race([
+    fetch(url, { redirect: 'follow', cache: 'no-store' }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 18000))
+  ]);
+  let resp;
+  try {
+    resp = await mkFetch();
+  } catch(e1) {
+    // Correção S12 — 1 retry após 800ms antes de desistir
+    await new Promise(res => setTimeout(res, 800));
+    resp = await mkFetch();
+  }
+  // Correção S12 — tratamento seguro para resposta que não seja JSON
+  const text = await resp.text();
+  try {
+    return JSON.parse(text);
+  } catch(e) {
+    throw new Error('Resposta inválida do GAS (não é JSON): ' + text.substring(0, 120));
+  }
 }
 
 async function gasPost(action, data={}) {
   if (!GAS_URL) throw new Error('GAS não configurado');
   const url = new URL(GAS_URL);
   url.searchParams.set('action', action);
-  const r = await fetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ action, ...data }),
-    redirect: 'follow'
-  });
-  return r.json();
+  // Correção S12 — cache-buster na URL do POST também
+  url.searchParams.set('_ts', Date.now());
+  // Correção S12 — timeout 18s; cache:no-store
+  const mkFetch = () => Promise.race([
+    fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ action, ...data }),
+      redirect: 'follow',
+      cache: 'no-store'
+    }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 18000))
+  ]);
+  let resp;
+  try {
+    resp = await mkFetch();
+  } catch(e1) {
+    // Correção S12 — 1 retry após 800ms antes de desistir
+    await new Promise(res => setTimeout(res, 800));
+    resp = await mkFetch();
+  }
+  // Correção S12 — tratamento seguro para resposta que não seja JSON
+  const text = await resp.text();
+  try {
+    return JSON.parse(text);
+  } catch(e) {
+    throw new Error('Resposta inválida do GAS (não é JSON): ' + text.substring(0, 120));
+  }
 }
 
 // Mapeia item do GAS (formato planilha) para o formato interno do DB.catalogo
@@ -1930,49 +1974,63 @@ async function vincularEquipamento() {
   if (!eqId) { showToast('Selecione um equipamento', 'err'); return; }
   const eq = DB.equipamentos.find(e => e.id_equipamento === eqId);
   if (!eq) return;
-  // Correção S10 — vínculo ativo: salvar estado anterior para rollback
+  // Correção S12 — usar endpoint explícito vincularEquipamentoOS em vez de salvarEquipamento
   const old = eq.id_os || '';
-  eq.id_os = _osEquipContext;
   if (GAS_URL) {
     try {
-      const r = await gasPost('salvarEquipamento', { id_equipamento: eqId, id_cliente: eq.id_cliente, tipo: eq.tipo, tag: eq.tag, id_os: _osEquipContext });
+      const r = await gasPost('vincularEquipamentoOS', {
+        id_equipamento: eqId,
+        id_os: _osEquipContext,
+        responsavel: 'adm',
+        origem: 'TapParts'
+      });
       if (!r || r.status !== 'ok') throw new Error(r?.mensagem || r?.codigo || 'Falha GAS');
-      // Recarregar equipamentos do GAS para garantir consistência
+      // Correção S12 — só atualiza DB local APÓS confirmação positiva do GAS
+      eq.id_os = _osEquipContext;
       await syncGAS(false);
     } catch(e) {
-      // Rollback local se GAS falhou
-      eq.id_os = old;
+      // Correção S12 — não mostra "vinculado ✓" se GAS não confirmou
       showToast('Erro ao vincular equipamento: ' + e.message, 'err');
       return;
     }
+  } else {
+    eq.id_os = _osEquipContext;
   }
   renderOSEquipList(_osEquipContext);
   renderOS();
   renderEquipamentos();
+  renderDashboard();
   showToast('Equipamento vinculado ✓');
 }
 
 async function desvincularEquip(eqId, idOS) {
   const eq = DB.equipamentos.find(e => e.id_equipamento === eqId);
   if (!eq) return;
-  // Correção S10 — vínculo ativo: rollback se GAS falhar
+  // Correção S12 — usar endpoint explícito vincularEquipamentoOS com id_os vazio para desvincular
   const old = eq.id_os || '';
-  eq.id_os = '';
   if (GAS_URL) {
     try {
-      const r = await gasPost('salvarEquipamento', { id_equipamento: eqId, id_cliente: eq.id_cliente, tipo: eq.tipo, tag: eq.tag, id_os: '' });
+      const r = await gasPost('vincularEquipamentoOS', {
+        id_equipamento: eqId,
+        id_os: '',
+        responsavel: 'adm',
+        origem: 'TapParts'
+      });
       if (!r || r.status !== 'ok') throw new Error(r?.mensagem || r?.codigo || 'Falha GAS');
+      // Só atualiza DB local APÓS confirmação positiva do GAS
+      eq.id_os = '';
       await syncGAS(false);
     } catch(e) {
-      // Rollback local se GAS falhou
-      eq.id_os = old;
       showToast('Erro ao desvincular equipamento: ' + e.message, 'err');
       return;
     }
+  } else {
+    eq.id_os = '';
   }
   renderOSEquipList(idOS);
   renderOS();
   renderEquipamentos();
+  renderDashboard();
   showToast('Equipamento desvinculado');
 }
 
@@ -3024,6 +3082,7 @@ function renderPipeline() {
   const stFilter = document.getElementById('pipe-status-filter')?.value || '';
   const osFilter = document.getElementById('pipe-os-filter')?.value || '';
   const calibFilter = document.getElementById('pipe-calib-filter')?.value || '';
+  // Correção S12 — lê seleção do filtro de cliente (mantido entre chamadas pelo próprio select)
   const cliFilter = document.getElementById('pipe-cli-filter')?.value || '';
 
   let data = DB.itens || [];
@@ -3035,10 +3094,17 @@ function renderPipeline() {
     i.id_item?.toLowerCase().includes(q));
   if (stFilter) data = data.filter(i => i.status === stFilter);
   if (osFilter) data = data.filter(i => i.id_os === osFilter);
-  if (cliFilter) data = data.filter(i => {
-    const os = DB.os.find(o => o.id_os === i.id_os);
-    return os ? os.id_cliente === cliFilter : false;
-  });
+  if (cliFilter) {
+    // Correção S12 — filtra por id_cliente do item, ou da OS vinculada, ou por nome como fallback
+    data = data.filter(i => {
+      if (i.id_cliente && i.id_cliente === cliFilter) return true;
+      const os = DB.os.find(o => o.id_os === i.id_os);
+      if (os && os.id_cliente === cliFilter) return true;
+      const cli = DB.clientes.find(c => c.id_cliente === cliFilter);
+      if (cli && i.cliente && i.cliente.toLowerCase().includes(cli.nome.toLowerCase())) return true;
+      return false;
+    });
+  }
   if (calibFilter === 'sim') data = data.filter(i => i.requer_calibracao);
   if (calibFilter === 'nao') data = data.filter(i => !i.requer_calibracao);
 
@@ -3051,15 +3117,16 @@ function renderPipeline() {
 
   const tbody = document.getElementById('tbl-pipeline');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="pipe-empty">📋 Nenhum item encontrado com os filtros aplicados</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8"><div class="pipe-empty">📋 Nenhum item encontrado com os filtros aplicados</div></td></tr>';
     return;
   }
 
   tbody.innerHTML = data.map(i => {
     const os = DB.os.find(o => o.id_os === i.id_os);
+    // Correção S12 — coluna Cliente separada da coluna OS; usa os.cliente ou item.cliente como fallback
+    const clienteNome = os?.cliente || i.cliente || '—';
     const pipeline = i.instalado_imediatamente ? PIPELINE_CURTO : PIPELINE_NORMAL;
     const idx = pipeline.indexOf(i.status);
-    // Garante pelo menos 4% para qualquer item no pipeline, e distribui o restante
     const pct = idx < 0 ? 0 : pipeline.length <= 1 ? 100 : Math.round(4 + (idx / (pipeline.length - 1)) * 96);
     const nextOpts = (NEXT_STATUS[i.status] || []);
     const calib = i.requer_calibracao;
@@ -3075,7 +3142,9 @@ function renderPipeline() {
       </td>
       <td>
         <div style="font-weight:500">${os?.numero_os ? 'OS ' + os.numero_os : i.id_os}</div>
-        <div style="font-size:11px;color:var(--text2)">${i.cliente}</div>
+      </td>
+      <td>
+        <div style="font-size:12px;color:var(--text2)">${clienteNome}</div>
       </td>
       <td><strong style="font-family:var(--head);font-size:15px">${i.tag_equipamento}</strong></td>
       <td style="font-weight:700">${i.quantidade}</td>
