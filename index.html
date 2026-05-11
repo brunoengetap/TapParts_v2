@@ -1786,6 +1786,8 @@ function renderOS() {
     </tr>`;
   }).join('');
 }
+
+function abrirModalOS(id=null) {
   document.getElementById('modal-os-title').textContent = id ? 'Editar OS' : 'Nova Ordem de Serviço';
   const o = id ? DB.os.find(x => x.id_os === id) : {};
   document.getElementById('os-id').value = id || '';
