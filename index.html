@@ -668,7 +668,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
     </div>
 
     <!-- Modal Encerrar OS (Sprint 6) -->
-    <div class="modal-overlay" id="modal-encerrar-os" style="display:none">
+    <div class="modal-overlay" id="modal-encerrar-os">
       <div class="modal modal-encerrar">
         <div class="modal-header">
           <span class="modal-title">Encerrar OS</span>
@@ -1782,7 +1782,7 @@ function renderOS() {
         <span class="phase-badge ${phaseClass[o.status]||'phase-1'}">${o.status}</span>
         ${isCampoConcluida ? '<div style="font-size:10px;color:var(--ok);font-weight:700;margin-top:2px">✅ Campo finalizado</div>' : ''}
       </td>
-      <td><span class="pill ${o.status==='Encerrada'?'pill-enc':'pill-f1'}">${o.status==='Encerrada'?'✓ Concluída':'🔄 Em andamento'}</span></td>
+      <td><span class="pill ${(o.status==='Encerrada'||o.fase_atual==='encerrada')?'pill-enc':'pill-f1'}">${(o.status==='Encerrada'||o.fase_atual==='encerrada')?'✓ Encerrada':'🔄 Em andamento'}</span></td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="editarOS('${o.id_os}')">✏️</button>
@@ -1791,6 +1791,7 @@ function renderOS() {
           ${(o.status === 'Fase 2' || o.fase_atual == 2) ? `<button class="btn btn-ghost btn-sm" onclick="retrocederFase1('${o.id_os}')" title="Retroceder para Fase 1" style="font-size:11px;padding:3px 8px">↩ Fase 1</button>` : ''}
           ${isCampoConcluida ? `<button class="btn btn-ok btn-sm" onclick="encerrarOS('${o.id_os}')" style="font-size:11px;padding:3px 8px">✅ Encerrar OS</button>` : ''}
           ${(o.status !== 'Encerrada' && o.fase_atual != 'encerrada' && !isCampoConcluida) ? `<button class="btn btn-ghost btn-sm" onclick="encerrarOS('${o.id_os}')" title="Encerrar OS" style="font-size:11px;padding:3px 8px;border-color:var(--ok);color:var(--ok)">✅ Encerrar</button>` : ''}
+          ${(o.status === 'Encerrada' || o.fase_atual === 'encerrada') ? `<button class="btn btn-ghost btn-sm" onclick="reabrirOS('${o.id_os}')" title="Reabrir OS" style="font-size:11px;padding:3px 8px;border-color:var(--warn);color:var(--warn)">↩ Reabrir</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -3940,6 +3941,21 @@ async function confirmarEncerrarOS() {
 
 
 
+
+async function reabrirOS(idOS) {
+  if (!confirm('Reabrir esta OS? O status voltará para "Fase 2 Campo Concluída".')) return;
+  const idx = DB.os.findIndex(o => o.id_os === idOS);
+  if (idx < 0) return;
+  if (GAS_URL) {
+    try {
+      await gasPost('reabrirOS', { id_os: idOS, origem: 'TapParts' });
+    } catch(e) { showToast('Aviso: GAS retornou erro (OS reaberta localmente)', 'warn'); }
+  }
+  DB.os[idx].status = 'Fase 2 Campo Concluída';
+  DB.os[idx].fase_atual = 2;
+  renderOS();
+  showToast('OS reaberta ✓', 'ok');
+}
 
 // ═══════════════════════════════════════════════════════════════
 // SPRINT 6 — HISTÓRICO / BANCO DE DADOS
