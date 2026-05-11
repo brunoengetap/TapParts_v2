@@ -499,12 +499,13 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
         <div class="search-wrap">
           <input type="text" placeholder="Buscar por número OS, cliente..." oninput="filterTable('tbl-os',this.value)">
         </div>
-        <select class="filter-select" onchange="filterOSStatus(this.value)">
-          <option value="">Todos os status</option>
+        <select class="filter-select" id="selOSStatus" onchange="filterOSStatus(this.value)">
+          <option value="ativas" selected>Em aberto / Andamento</option>
+          <option value="todas">Todos os status</option>
           <option value="Fase 1">Fase 1 — Levantamento</option>
           <option value="Fase 2">Fase 2 — Retorno</option>
           <option value="Fase 2 Campo Concluída">Fase 2 — Campo Concluído</option>
-          <option value="Encerrada">Encerrada</option>
+          <option value="Encerrada">Encerradas</option>
         </select>
         <select class="filter-select" id="selOSCliente" onchange="filterOSCliente(this.value)">
           <option value="">Todos os clientes</option>
@@ -735,10 +736,15 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
     <div class="view" id="view-levantamentos">
       <div class="filter-bar">
         <div class="search-wrap">
-          <input type="text" id="lev-search" placeholder="Buscar por OS, cliente, ID levantamento..." oninput="renderLevantamentos()">
+          <input type="text" id="lev-search" placeholder="Buscar por OS, cliente, inspetor, ID levantamento..." oninput="renderLevantamentos()">
         </div>
         <select class="filter-select" id="lev-os-filter" onchange="renderLevantamentos()">
           <option value="">Todas as OS</option>
+        </select>
+        <select class="filter-select" id="lev-fase-filter" onchange="renderLevantamentos()">
+          <option value="">Todas as fases</option>
+          <option value="1">Fase 1</option>
+          <option value="2">Fase 2</option>
         </select>
       </div>
       <div id="lev-container">
@@ -1410,7 +1416,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycby1Aa2timPdO-L8uRkgpO9LOLgJ1afS8tWiRqF8FzXDsA4AM35XG9oVrP_zrLfewRpO/exec'; // TODO: colar URL do GAS aqui
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzR6CPX2JAqxyVywgg9uSoJyZc6kENfK7csXsamnYYf1eN0tJ6my5aAZyUhemO2TqVl/exec'; // TODO: colar URL do GAS aqui
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -1728,7 +1734,7 @@ async function salvarCliente() {
 // ═══════════════════════════════════════════════════════════════
 // OS
 // ═══════════════════════════════════════════════════════════════
-let _osStatusFilter = '';
+let _osStatusFilter = 'ativas'; // padrão: mostra apenas OS em aberto/andamento
 let _osClienteFilter = '';
 
 function filterOSStatus(v) { _osStatusFilter = v; renderOS(); }
@@ -1739,7 +1745,11 @@ function renderOS() {
   const q = (document.querySelector('#view-os input') || {}).value?.toLowerCase() || '';
   let data = DB.os.filter(o => {
     if (q && !o.numero_os?.includes(q) && !o.cliente?.toLowerCase().includes(q) && !o.descricao?.toLowerCase().includes(q)) return false;
-    if (_osStatusFilter && o.status !== _osStatusFilter) return false;
+    if (_osStatusFilter === 'ativas') {
+      if (o.status === 'Encerrada' || o.fase_atual === 'encerrada') return false;
+    } else if (_osStatusFilter && _osStatusFilter !== 'todas') {
+      if (o.status !== _osStatusFilter) return false;
+    }
     if (_osClienteFilter && o.id_cliente !== _osClienteFilter) return false;
     return true;
   });
@@ -1977,9 +1987,21 @@ async function salvarEquipamentoDaOS() {
 function renderLevantamentos() {
   const q = (document.getElementById('lev-search')?.value || '').toLowerCase();
   const osFilter = document.getElementById('lev-os-filter')?.value || '';
+  const faseFilter = document.getElementById('lev-fase-filter')?.value || '';
   let data = DB.levantamentos || [];
-  if (q) data = data.filter(l => l.id_levantamento?.toLowerCase().includes(q) || l.id_os?.toLowerCase().includes(q) || l.nome_inspetor?.toLowerCase().includes(q));
+  if (q) data = data.filter(l => {
+    const os = DB.os.find(o => o.id_os === l.id_os);
+    const clienteNome = (os?.cliente || '').toLowerCase();
+    return l.id_levantamento?.toLowerCase().includes(q) ||
+           l.id_os?.toLowerCase().includes(q) ||
+           l.nome_inspetor?.toLowerCase().includes(q) ||
+           clienteNome.includes(q) ||
+           (os?.numero_os || '').toLowerCase().includes(q);
+  });
   if (osFilter) data = data.filter(l => l.id_os === osFilter);
+  if (faseFilter) data = data.filter(l => String(l.fase) === faseFilter);
+  // Mais recentes primeiro
+  data = [...data].sort((a,b) => (b.timestamp_envio||'').localeCompare(a.timestamp_envio||''));
   const container = document.getElementById('lev-container');
   if (!data.length) {
     container.innerHTML = '<div class="empty-state"><div class="ei">📥</div>Nenhum levantamento recebido</div>';
@@ -2005,17 +2027,20 @@ function renderLevantamentos() {
     concluido: 'sc-campo'
   };
 
-  container.innerHTML = data.map(l => {
+  container.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:0 2px">${data.length} levantamento${data.length!==1?'s':''} encontrado${data.length!==1?'s':''}</div>` +
+  data.map(l => {
     const resumo = l.resumo_status || {};
     const chips = Object.entries(resumo).map(([k,v]) =>
       `<span class="status-chip ${STATUS_CLASS[k]||''}">${STATUS_PT[k]||k}: ${v}</span>`
     ).join('');
     const os = DB.os.find(o => o.id_os === l.id_os);
+    const osLabel = os ? `OS ${os.numero_os || l.id_os} · ${os.cliente}` : `OS ${l.id_os}`;
+    const faseLabel = String(l.fase) === '2' ? '<span class="phase-badge phase-2" style="font-size:10px;padding:1px 6px">Fase 2</span>' : '<span class="phase-badge phase-1" style="font-size:10px;padding:1px 6px">Fase 1</span>';
     return `<div class="lev-card">
       <div class="lev-card-hdr">
         <div>
           <div class="lev-id">${l.id_levantamento}</div>
-          <div class="lev-meta">OS ${l.id_os}${os?' · '+os.cliente:''} · Fase ${l.fase} · ${l.nome_inspetor} · ${fmtDateTime(l.timestamp_envio)}</div>
+          <div class="lev-meta">${osLabel} · ${faseLabel} · ${l.nome_inspetor} · ${fmtDateTime(l.timestamp_envio)}</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           <span class="badge badge-blue">${l.total_itens} iten${l.total_itens!=1?'s':'s'}</span>
