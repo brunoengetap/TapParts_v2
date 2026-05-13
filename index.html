@@ -403,7 +403,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
     <div class="logo-badge">TAP</div>
     <div>
       <div class="logo-name">Parts</div>
-      <div class="logo-sub">Engetap · S12.1</div>
+      <div class="logo-sub">Engetap · S17</div>
     </div>
   </div>
 
@@ -455,7 +455,7 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
       <div class="gas-dot spin" id="gasDot"></div>
       <span id="gasLabel">Conectando ao GAS…</span>
     </div>
-    <div style="margin-top:6px;font-size:10px;opacity:.5">TapParts · S12.1</div>
+    <div style="margin-top:6px;font-size:10px;opacity:.5">TapParts · S17</div>
   </div>
 </div>
 
@@ -1041,10 +1041,10 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
         <div class="field">
           <label>Tipo *</label>
           <select id="eq-tipo">
-            <option>Vaso de pressão</option>
-            <option>Caldeira</option>
-            <option>Tubulação</option>
-            <option>Tanque</option>
+            <option value="Vaso de pressão">Vaso de pressão</option>
+            <option value="Caldeira">Caldeira</option>
+            <option value="Tubulação">Tubulação</option>
+            <option value="Tanque">Tanque</option>
           </select>
         </div>
       </div>
@@ -1418,9 +1418,9 @@ code { font-size: 11px; color: var(--accent); font-family: monospace; }
 // ═══════════════════════════════════════════════════════════════
 // GAS CONFIG — substitua pela URL real do Web App
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzhHc9TB3HAuLcPXSPc67BllcrnOSGyLMULFbEfK3GhcQa_1VXGddUAYuB1xyYXJ26v/exec'; // TODO: colar URL do GAS aqui
-// Correção S12 — versionamento
-const APP_VERSION = 'S15';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrtYuEsGHDQ9n7UgnRSIFPOYomAcVe_NqcXZJ0--4q-ct5VaYp_IRrN_9kFE33v7Jv/exec'; // TODO: colar URL do GAS aqui
+// S17 — Correções cirúrgicas: dedup OS, snapshot levantamento, Fase 2 sync, tipo equipamento, dashboard
+const APP_VERSION = 'S17';
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO LOCAL (banco de dados em memória enquanto GAS não está conectado)
@@ -2294,6 +2294,18 @@ function populateOSByCliente(cliId) {
   sel.innerHTML = '<option value="">— Nenhuma —</option>' + opts.map(o => `<option value="${o.id_os}">OS ${o.numero_os}</option>`).join('');
 }
 
+// BUG4-FIX: normaliza o tipo do banco (qualquer capitalização/variante) para o value exato do select
+function normalizeTipoEquipamentoParaSelect(tipo) {
+  if (!tipo) return 'Vaso de pressão';
+  var t = String(tipo).trim().toLowerCase();
+  if (t === 'vaso de pressão' || t === 'vaso de pressao' || t === 'vaso') return 'Vaso de pressão';
+  if (t === 'caldeira') return 'Caldeira';
+  if (t === 'tubulação' || t === 'tubulacao') return 'Tubulação';
+  if (t === 'tanque') return 'Tanque';
+  // Fallback: retorna o valor original com inicial maiúscula
+  return tipo.charAt(0).toUpperCase() + tipo.slice(1);
+}
+
 function abrirModalEquip(id=null) {
   document.getElementById('modal-equip-title').textContent = id ? 'Editar Equipamento' : 'Novo Equipamento';
   const e = id ? DB.equipamentos.find(x => x.id_equipamento === id) : {};
@@ -2302,8 +2314,13 @@ function abrirModalEquip(id=null) {
   document.getElementById('eq-pmta').value = e.pmta || '';
   document.getElementById('eq-localizacao').value = e.localizacao || '';
   document.getElementById('eq-campo').value = e.campo_livre || '';
-  const tipos = ['Vaso de pressão','Caldeira','Tubulação','Tanque'];
-  document.getElementById('eq-tipo').value = e.tipo || 'Vaso de pressão';
+  // BUG4-FIX: normalizar tipo antes de atribuir ao select (banco pode ter minúsculas)
+  const tipoNormalizado = normalizeTipoEquipamentoParaSelect(e.tipo);
+  document.getElementById('eq-tipo').value = tipoNormalizado;
+  // Fallback: se o valor não existir no select, usar Vaso de pressão
+  if (!document.getElementById('eq-tipo').value) {
+    document.getElementById('eq-tipo').value = 'Vaso de pressão';
+  }
   const cliSel = document.getElementById('eq-cliente');
   cliSel.innerHTML = '<option value="">— Selecione —</option>' + DB.clientes.filter(c=>c.ativo).map(c=>`<option value="${c.id_cliente}" ${c.id_cliente===e.id_cliente?'selected':''}>${c.nome}</option>`).join('');
   populateOSByCliente(e.id_cliente || '');
@@ -3057,8 +3074,17 @@ function renderDashboard() {
   document.getElementById('dash-os-list').innerHTML = osAtArr.length
     ? osAtArr.map(o => {
         const oItens = itens.filter(i => i.id_os === o.id_os);
-        const STATI_CONCLUIDOS = ['instalado','instalado_campo','entregue','calibrado','concluido','em_campo_f2'];
-        const pct = oItens.length ? Math.round(oItens.filter(i=>STATI_CONCLUIDOS.includes(i.status)).length / oItens.length * 100) : 0;
+        // [DASH_PROGRESS] BUG5-FIX: em_campo_f2 não é status final — remover de STATI_CONCLUIDOS
+        // Itens em campo (Fase 2) estão em andamento, não concluídos
+        const STATI_CONCLUIDOS = ['instalado','instalado_campo','entregue','calibrado','concluido'];
+        const pctBruto = oItens.length ? Math.round(oItens.filter(i=>STATI_CONCLUIDOS.includes(i.status)).length / oItens.length * 100) : 0;
+        // BUG5-FIX: cap de 95% para OS não encerradas formalmente
+        const pct = isOSEncerrada(o) ? pctBruto : Math.min(pctBruto, 95);
+        // BUG5-FIX: label de status mais preciso
+        const labelOS = isOSEncerrada(o) ? 'Encerrada' :
+          (isFase2(o) ? 'Fase 2 em campo' :
+          (pct === 0 ? 'Aguardando pipeline' : `${pct}% concluído`));
+        const corBarra = isOSEncerrada(o) ? 'var(--ok)' : (isFase2(o) ? 'var(--warn)' : 'var(--accent)');
         return `<div class="dash-item">
           <div>
             <div class="dash-item-label">OS ${o.numero_os} — ${o.cliente}</div>
@@ -3066,8 +3092,8 @@ function renderDashboard() {
           </div>
           <div style="display:flex;align-items:center;gap:10px">
             <div>
-              <div style="font-size:11px;color:var(--text2);margin-bottom:3px;text-align:right">${pct}% concluído</div>
-              <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+              <div style="font-size:11px;color:var(--text2);margin-bottom:3px;text-align:right">${labelOS}</div>
+              <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%;background:${corBarra}"></div></div>
             </div>
             <span class="badge badge-blue">${oItens.length} itens</span>
           </div>
